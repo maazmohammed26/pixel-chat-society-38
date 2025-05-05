@@ -1,14 +1,26 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Heart, MessageCircle, Share, Send } from 'lucide-react';
+import { Heart, MessageCircle, Share, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { format, formatDistanceToNow } from 'date-fns';
+
+interface CommentProps {
+  id: string;
+  content: string;
+  created_at: string;
+  author: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+  }
+}
 
 interface PostProps {
   id: string;
@@ -21,8 +33,9 @@ interface PostProps {
   content: string;
   created_at: string;
   likes: number;
-  comments: number;
+  comments: CommentProps[];
   liked?: boolean;
+  showComments?: boolean;
 }
 
 export function PostCard({ post, onAction }: { 
@@ -31,22 +44,50 @@ export function PostCard({ post, onAction }: {
 }) {
   const [isLiked, setIsLiked] = useState(post.liked || false);
   const [likeCount, setLikeCount] = useState(post.likes);
-  const [showCommentForm, setShowCommentForm] = useState(false);
+  const [showComments, setShowComments] = useState(post.showComments || false);
   const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState<CommentProps[]>(post.comments || []);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
   const { toast } = useToast();
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
   
-  const handleLike = () => {
-    if (isLiked) {
-      setLikeCount(likeCount - 1);
-    } else {
-      setLikeCount(likeCount + 1);
+  const handleLike = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      if (isLiked) {
+        // Unlike
+        await supabase
+          .from('likes')
+          .delete()
+          .match({ user_id: user.id, post_id: post.id });
+        
+        setLikeCount(prev => Math.max(0, prev - 1));
+      } else {
+        // Like
+        await supabase
+          .from('likes')
+          .insert({ user_id: user.id, post_id: post.id });
+        
+        setLikeCount(prev => prev + 1);
+      }
+      
+      setIsLiked(!isLiked);
+      
+      toast({
+        title: isLiked ? 'Post unliked' : 'Post liked!',
+        description: isLiked ? 'You have unliked this post' : 'You have liked this post',
+      });
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update like',
+      });
     }
-    setIsLiked(!isLiked);
-    
-    toast({
-      title: isLiked ? 'Post unliked' : 'Post liked!',
-      description: isLiked ? 'You have unliked this post' : 'You have liked this post',
-    });
   };
   
   const handleShare = () => {
@@ -56,20 +97,131 @@ export function PostCard({ post, onAction }: {
     });
   };
   
-  const handleComment = () => {
-    setShowCommentForm(!showCommentForm);
+  const toggleComments = async () => {
+    if (!showComments) {
+      await fetchComments();
+    }
+    setShowComments(!showComments);
   };
   
-  const submitComment = () => {
+  const fetchComments = async () => {
+    try {
+      setIsLoadingComments(true);
+      
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          id,
+          content,
+          created_at,
+          profiles:user_id (id, name, username, avatar)
+        `)
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: true });
+        
+      if (error) throw error;
+      
+      const formattedComments = data.map(comment => ({
+        id: comment.id,
+        content: comment.content,
+        created_at: comment.created_at,
+        author: {
+          id: comment.profiles.id,
+          name: comment.profiles.name,
+          username: comment.profiles.username,
+          avatar: comment.profiles.avatar,
+        }
+      }));
+      
+      setComments(formattedComments);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load comments',
+      });
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+  
+  const submitComment = async () => {
     if (!commentText.trim()) return;
     
-    toast({
-      title: 'Comment posted!',
-      description: 'Your comment has been added.',
-    });
-    
-    setCommentText('');
-    setShowCommentForm(false);
+    try {
+      setIsSubmitting(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'You must be logged in to comment',
+        });
+        return;
+      }
+      
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, username, avatar')
+        .eq('id', user.id)
+        .single();
+        
+      // Insert comment
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: post.id,
+          user_id: user.id,
+          content: commentText.trim()
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      // Add the new comment to the list
+      const newComment: CommentProps = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+        author: {
+          id: user.id,
+          name: profile.name,
+          username: profile.username,
+          avatar: profile.avatar,
+        }
+      };
+      
+      setComments(prev => [...prev, newComment]);
+      setCommentText('');
+      
+      toast({
+        title: 'Comment posted!',
+        description: 'Your comment has been added.',
+      });
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to post comment',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCommentClick = () => {
+    toggleComments();
+    setTimeout(() => {
+      if (!showComments && commentInputRef.current) {
+        commentInputRef.current.focus();
+      }
+    }, 100);
   };
 
   // Format the timestamp
@@ -113,11 +265,11 @@ export function PostCard({ post, onAction }: {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={handleComment} 
+            onClick={handleCommentClick} 
             className="flex items-center gap-1 text-muted-foreground hover:text-social-blue"
           >
             <MessageCircle className="h-4 w-4" />
-            {post.comments > 0 && <span className="text-xs">{post.comments}</span>}
+            {comments.length > 0 && <span className="text-xs">{comments.length}</span>}
           </Button>
           <Button 
             variant="ghost" 
@@ -129,20 +281,65 @@ export function PostCard({ post, onAction }: {
           </Button>
         </div>
       </CardFooter>
-      {showCommentForm && (
+      {showComments && (
         <div className="px-4 pb-4 pt-1">
           <Separator className="mb-3" />
+          
+          {/* Comments */}
+          <div className="space-y-4 mb-4">
+            {isLoadingComments ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => (
+                  <div key={i} className="flex gap-2 animate-pulse">
+                    <div className="h-8 w-8 rounded-full bg-muted"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-muted rounded w-24 mb-1"></div>
+                      <div className="h-3 bg-muted rounded w-full"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : comments.length > 0 ? (
+              comments.map(comment => (
+                <div key={comment.id} className="flex gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={comment.author.avatar} />
+                    <AvatarFallback>{comment.author.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="bg-muted rounded-lg p-2">
+                      <div className="flex justify-between items-start">
+                        <p className="font-medium text-sm">{comment.author.name}</p>
+                        <span className="text-xs text-muted-foreground" title={format(new Date(comment.created_at), 'PPpp')}>
+                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 ml-2">@{comment.author.username}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-center text-muted-foreground py-2">No comments yet</p>
+            )}
+          </div>
+          
+          {/* Comment input */}
           <div className="flex gap-2">
             <Textarea 
+              ref={commentInputRef}
               placeholder="Write a comment..." 
               className="min-h-[60px] text-sm"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
+              disabled={isSubmitting}
             />
             <Button 
               size="icon" 
               className="self-end hover:bg-social-blue"
               onClick={submitComment}
+              disabled={!commentText.trim() || isSubmitting}
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -240,6 +437,8 @@ export function CommunityFeed() {
     try {
       setLoading(true);
       
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data: postsData, error } = await supabase
         .from('posts')
         .select(`
@@ -252,22 +451,50 @@ export function CommunityFeed() {
         
       if (error) throw error;
       
-      // Format posts data
-      const formattedPosts = postsData.map((post: any) => ({
-        id: post.id,
-        content: post.content,
-        created_at: post.created_at,
-        author: {
-          id: post.profiles.id,
-          name: post.profiles.name,
-          username: post.profiles.username,
-          avatar: post.profiles.avatar,
-        },
-        likes: 0,
-        comments: 0
+      // Get likes count for each post
+      const postsWithLikes = await Promise.all(postsData.map(async (post) => {
+        // Count likes
+        const { count: likesCount } = await supabase
+          .from('likes')
+          .select('id', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+          
+        // Count comments
+        const { count: commentsCount } = await supabase
+          .from('comments')
+          .select('id', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+          
+        // Check if current user has liked this post
+        let hasLiked = false;
+        if (user) {
+          const { data: userLike } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('post_id', post.id)
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          hasLiked = !!userLike;
+        }
+          
+        return {
+          id: post.id,
+          content: post.content,
+          created_at: post.created_at,
+          author: {
+            id: post.profiles.id,
+            name: post.profiles.name,
+            username: post.profiles.username,
+            avatar: post.profiles.avatar,
+          },
+          likes: likesCount || 0,
+          comments: [],
+          liked: hasLiked
+        };
       }));
       
-      setPosts(formattedPosts);
+      setPosts(postsWithLikes);
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
@@ -290,9 +517,26 @@ export function CommunityFeed() {
         fetchPosts();
       })
       .subscribe();
+    
+    // Set up subscriptions for new comments and likes
+    const commentsSubscription = supabase
+      .channel('public:comments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => {
+        fetchPosts(); 
+      })
+      .subscribe();
+      
+    const likesSubscription = supabase
+      .channel('public:likes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+        fetchPosts();
+      })
+      .subscribe();
       
     return () => {
       supabase.removeChannel(postsSubscription);
+      supabase.removeChannel(commentsSubscription);
+      supabase.removeChannel(likesSubscription);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

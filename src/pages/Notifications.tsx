@@ -1,87 +1,201 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserPlus, MessageSquare, Heart } from 'lucide-react';
+import { UserPlus, MessageSquare, Heart, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from "@/components/ui/badge";
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { format, formatDistanceToNow } from 'date-fns';
 
-// This will be implemented in the future to show real notifications
-// For now, we'll show a placeholder UI with example notifications
-const notifications = [
-  {
-    id: '1',
-    type: 'friend_request',
-    content: 'sent you a friend request',
-    read: false,
-    timestamp: '5m ago',
-    user: {
-      name: 'Sarah Wilson',
-      username: 'sarahw',
-      avatar: 'https://i.pravatar.cc/150?u=sarahw'
-    }
-  },
-  {
-    id: '2',
-    type: 'like',
-    content: 'liked your post',
-    read: true,
-    timestamp: '2h ago',
-    user: {
-      name: 'Michael Brown',
-      username: 'mikebrown',
-      avatar: 'https://i.pravatar.cc/150?u=mikebrown'
-    }
-  },
-  {
-    id: '3',
-    type: 'comment',
-    content: 'commented on your post: "Great idea, let\'s connect!"',
-    read: true,
-    timestamp: '1d ago',
-    user: {
-      name: 'Alex Johnson',
-      username: 'alexj',
-      avatar: 'https://i.pravatar.cc/150?u=alexj'
-    }
-  }
-];
+interface NotificationProps {
+  id: string;
+  type: 'friend_request' | 'like' | 'comment';
+  content: string;
+  read: boolean;
+  created_at: string;
+  sender: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+  };
+  reference_id?: string;
+}
 
 export function Notifications() {
+  const [notifications, setNotifications] = useState<NotificationProps[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      // Get friend requests
+      const { data: friendRequests } = await supabase
+        .from('friends')
+        .select(`
+          id,
+          created_at,
+          profiles:sender_id (id, name, username, avatar)
+        `)
+        .eq('receiver_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      // Get likes and comments (will implement in a future step)
+      // Format notifications
+      const formattedNotifications = [
+        ...(friendRequests?.map(request => ({
+          id: request.id,
+          type: 'friend_request' as const,
+          content: 'sent you a friend request',
+          read: false,
+          created_at: request.created_at,
+          sender: {
+            id: request.profiles.id,
+            name: request.profiles.name,
+            username: request.profiles.username,
+            avatar: request.profiles.avatar,
+          },
+          reference_id: request.id
+        })) || [])
+      ];
+
+      setNotifications(formattedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load notifications'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcceptFriend = async (notificationId: string) => {
+    try {
+      await supabase
+        .from('friends')
+        .update({ status: 'accepted' })
+        .eq('id', notificationId);
+      
+      toast({
+        title: 'Friend request accepted',
+        description: 'You are now friends!'
+      });
+      
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to accept friend request'
+      });
+    }
+  };
+
+  const handleDeclineFriend = async (notificationId: string) => {
+    try {
+      await supabase
+        .from('friends')
+        .delete()
+        .eq('id', notificationId);
+      
+      toast({
+        title: 'Friend request declined',
+        description: 'You have declined the friend request'
+      });
+      
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to decline friend request'
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    // Set up realtime subscription
+    const notificationsChannel = supabase
+      .channel('public:friends')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'friends' }, 
+        (payload) => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationsChannel);
+    };
+  }, []);
+
   return (
     <DashboardLayout>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent">Notifications</CardTitle>
+          <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
+            <Bell className="h-6 w-6" /> Notifications
+          </CardTitle>
           <CardDescription>
             Stay updated with activity related to your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {notifications.length > 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-start p-3 rounded-lg border animate-pulse">
+                  <div className="h-10 w-10 rounded-full bg-muted mr-3"></div>
+                  <div className="flex-1">
+                    <div className="h-5 bg-muted rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : notifications.length > 0 ? (
             notifications.map(notification => (
               <div 
                 key={notification.id} 
                 className={`flex items-start p-3 rounded-lg border ${!notification.read ? 'bg-muted/30' : ''}`}
               >
                 <Avatar className="mr-3 mt-1">
-                  <AvatarImage src={notification.user.avatar} alt={notification.user.name} />
-                  <AvatarFallback>{notification.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarImage src={notification.sender.avatar} alt={notification.sender.name} />
+                  <AvatarFallback>{notification.sender.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <p>
-                      <span className="font-medium">{notification.user.name}</span>
+                      <span className="font-medium">{notification.sender.name}</span>
                       {' '}{notification.content}
                     </p>
-                    <span className="text-xs text-muted-foreground">{notification.timestamp}</span>
+                    <span className="text-xs text-muted-foreground" title={format(new Date(notification.created_at), 'PPpp')}>
+                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                    </span>
                   </div>
                   {notification.type === 'friend_request' && (
                     <div className="flex gap-2 mt-2">
-                      <Button size="sm" variant="default" className="bg-social-blue hover:bg-social-blue/90">
+                      <Button size="sm" variant="default" className="bg-social-blue hover:bg-social-blue/90" onClick={() => handleAcceptFriend(notification.reference_id!)}>
                         Accept
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleDeclineFriend(notification.reference_id!)}>
                         Decline
                       </Button>
                     </div>

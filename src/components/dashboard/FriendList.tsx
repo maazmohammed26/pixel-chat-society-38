@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { UserPlus, Check, X, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface FriendProps {
   id: string;
@@ -22,6 +23,7 @@ export function FriendCard({ friend, onAction }: {
 }) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   
   const handleAddFriend = async () => {
     setIsLoading(true);
@@ -139,10 +141,10 @@ export function FriendCard({ friend, onAction }: {
   };
   
   const handleChat = () => {
-    // Redirect to chat
+    navigate('/messages');
     toast({
-      title: 'Coming soon!',
-      description: 'Chat feature will be available soon.',
+      title: 'Opening chat',
+      description: `Starting conversation with ${friend.name}`,
     });
   };
 
@@ -337,6 +339,21 @@ export function FriendList() {
   
   useEffect(() => {
     fetchFriendData();
+    
+    // Set up realtime subscriptions
+    const friendsChannel = supabase
+      .channel('public:friends')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'friends' }, 
+        () => {
+          fetchFriendData();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(friendsChannel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
