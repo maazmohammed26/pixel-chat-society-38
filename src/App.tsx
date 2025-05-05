@@ -1,10 +1,24 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+// Pages
 import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Friends from "./pages/Friends";
+import Messages from "./pages/Messages";
+import Notifications from "./pages/Notifications";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+
+// Components
+import { AuthGuard } from "./components/common/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +29,62 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <AuthGuard>
+                <Dashboard />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/friends" 
+            element={
+              <AuthGuard>
+                <Friends />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/messages" 
+            element={
+              <AuthGuard>
+                <Messages />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/notifications" 
+            element={
+              <AuthGuard>
+                <Notifications />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <AuthGuard>
+                <Profile />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <AuthGuard>
+                <Settings />
+              </AuthGuard>
+            } 
+          />
+          
+          {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
