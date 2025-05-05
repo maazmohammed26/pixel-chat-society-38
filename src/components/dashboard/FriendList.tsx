@@ -240,10 +240,10 @@ export function FriendList() {
         
       // Format friends data
       const formattedFriends = friendsData?.map(friend => {
-        const isSender = friend.profiles!friends_sender_id_fkey.id !== user.id;
+        const isSender = friend.profiles["friends_sender_id_fkey"].id !== user.id;
         const friendProfile = isSender ? 
-          friend.profiles!friends_sender_id_fkey : 
-          friend.profiles!friends_receiver_id_fkey;
+          friend.profiles["friends_sender_id_fkey"] : 
+          friend.profiles["friends_receiver_id_fkey"];
         
         return {
           id: friendProfile.id,
@@ -267,10 +267,10 @@ export function FriendList() {
         
       // Format requests data
       const formattedRequests = requestsData?.map(request => ({
-        id: request.profiles!friends_sender_id_fkey.id,
-        name: request.profiles!friends_sender_id_fkey.name,
-        username: request.profiles!friends_sender_id_fkey.username,
-        avatar: request.profiles!friends_sender_id_fkey.avatar,
+        id: request.profiles["friends_sender_id_fkey"].id,
+        name: request.profiles["friends_sender_id_fkey"].name,
+        username: request.profiles["friends_sender_id_fkey"].username,
+        avatar: request.profiles["friends_sender_id_fkey"].avatar,
         status: 'request' as const,
         relationship_id: request.id
       })) || [];
@@ -287,10 +287,10 @@ export function FriendList() {
         
       // Format pending data
       const formattedPending = pendingData?.map(pending => ({
-        id: pending.profiles!friends_receiver_id_fkey.id,
-        name: pending.profiles!friends_receiver_id_fkey.name,
-        username: pending.profiles!friends_receiver_id_fkey.username,
-        avatar: pending.profiles!friends_receiver_id_fkey.avatar,
+        id: pending.profiles["friends_receiver_id_fkey"].id,
+        name: pending.profiles["friends_receiver_id_fkey"].name,
+        username: pending.profiles["friends_receiver_id_fkey"].username,
+        avatar: pending.profiles["friends_receiver_id_fkey"].avatar,
         status: 'pending' as const,
         relationship_id: pending.id
       })) || [];
