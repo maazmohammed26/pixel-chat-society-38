@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { AtSign, Lock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { AtSign, Lock, Mail } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { loginUser } from '@/utils/authUtils';
 
 const loginFormSchema = z.object({
-  username: z.string().min(1, { message: 'Username is required' }),
+  email: z.string().email({ message: 'Please enter a valid email address' }),
   password: z.string().min(1, { message: 'Password is required' }),
 });
 
@@ -20,11 +21,12 @@ type LoginFormValues = z.infer<typeof loginFormSchema>;
 export function LoginForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -33,28 +35,7 @@ export function LoginForm() {
     setIsLoading(true);
     
     try {
-      // TODO: Replace with actual API call to authenticate users
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      // Simulate validation for non-existent user
-      if (data.username !== 'demo') {
-        toast({
-          variant: 'destructive',
-          title: 'Login failed',
-          description: 'Username not found',
-        });
-        return;
-      }
-      
-      // Simulate validation for incorrect password
-      if (data.password !== 'password123') {
-        toast({
-          variant: 'destructive',
-          title: 'Login failed',
-          description: 'Incorrect password',
-        });
-        return;
-      }
+      await loginUser(data.email, data.password);
       
       toast({
         title: 'Login successful!',
@@ -62,29 +43,24 @@ export function LoginForm() {
       });
       
       // Redirect to dashboard after successful login
-      // navigate('/dashboard');
-      console.log('Login successful', data);
-      
-      // Set mock JWT token
-      localStorage.setItem('token', 'mock-jwt-token');
-      localStorage.setItem('user', JSON.stringify({
-        id: '1',
-        name: 'Demo User',
-        username: 'demo',
-        email: 'demo@example.com',
-        avatar: 'https://i.pravatar.cc/150?u=demo'
-      }));
-      
-      // Force reload to update auth state
-      window.location.href = '/dashboard';
-      
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Login failed',
-        description: 'Something went wrong. Please try again.',
-      });
+      navigate('/dashboard');
+    } catch (error: any) {
       console.error('Login error', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('Invalid login')) {
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: 'Incorrect email or password',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: error.message || 'Something went wrong. Please try again.',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -101,15 +77,15 @@ export function LoginForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="username"
+            name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>Email</FormLabel>
                 <FormControl>
                   <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
-                    <AtSign className="ml-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="ml-3 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Enter your username" 
+                      placeholder="Enter your email address" 
                       className="border-0 bg-transparent focus-visible:ring-0" 
                       {...field} 
                     />
@@ -163,12 +139,6 @@ export function LoginForm() {
         <Link to="/register" className="font-medium text-primary hover:underline">
           Sign up
         </Link>
-      </div>
-
-      <div className="mt-8 p-4 bg-muted/30 rounded-lg border">
-        <p className="text-sm text-center text-muted-foreground">
-          <strong>Demo credentials:</strong> username: demo, password: password123
-        </p>
       </div>
     </div>
   );

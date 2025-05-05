@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,48 +8,105 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { User, Mail, AtSign, Camera, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { supabase } from '@/integrations/supabase/client';
+import { getUserProfile, updateUserProfile } from '@/utils/authUtils';
 
-interface UserProfileProps {
-  user: {
-    id: string;
-    name: string;
-    username: string;
-    email: string;
-    avatar: string;
-    bio?: string;
-    friendCount: number;
-    postCount: number;
-  };
-}
-
-export function UserProfile({ user }: UserProfileProps) {
+export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({
-    name: user.name,
-    bio: user.bio || '',
+    id: '',
+    name: '',
+    username: '',
+    email: '',
+    avatar: '',
+    bio: '',
+    friendCount: 0,
+    postCount: 0
   });
   const { toast } = useToast();
+  
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const profileData = await getUserProfile(user.id);
+          
+          // Get friend count
+          const { count: friendCount } = await supabase
+            .from('friends')
+            .select('*', { count: 'exact', head: true })
+            .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+            .eq('status', 'accepted');
+            
+          // Get post count
+          const { count: postCount } = await supabase
+            .from('posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+            
+          setProfile({
+            id: user.id,
+            name: profileData.name || '',
+            username: profileData.username || '',
+            email: profileData.email || '',
+            avatar: profileData.avatar || '',
+            bio: profileData.bio || '',
+            friendCount: friendCount || 0,
+            postCount: postCount || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load profile data',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, [toast]);
   
   const handleEdit = () => {
     setIsEditing(true);
   };
   
-  const handleSave = () => {
-    setIsEditing(false);
-    toast({
-      title: 'Profile updated',
-      description: 'Your profile has been successfully updated.',
-    });
-    
-    // In a real app, we would make an API call here
+  const handleSave = async () => {
+    try {
+      await updateUserProfile(profile.id, {
+        name: profile.name,
+        bio: profile.bio,
+        updated_at: new Date()
+      });
+      
+      setIsEditing(false);
+      
+      toast({
+        title: 'Profile updated',
+        description: 'Your profile has been successfully updated.',
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Failed to update profile. Please try again.',
+      });
+    }
   };
   
   const handleCancel = () => {
     setIsEditing(false);
-    setProfile({
-      name: user.name,
-      bio: user.bio || '',
-    });
+    // Reset any changes
+    setProfile(prev => ({
+      ...prev
+    }));
   };
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -60,13 +117,37 @@ export function UserProfile({ user }: UserProfileProps) {
     }));
   };
 
+  if (loading) {
+    return (
+      <Card className="animate-pulse">
+        <CardHeader className="text-center">
+          <div className="mx-auto h-24 w-24 rounded-full bg-muted"></div>
+          <div className="h-7 bg-muted rounded mx-auto w-1/3 mt-4"></div>
+          <div className="h-5 bg-muted rounded mx-auto w-1/4 mt-2"></div>
+        </CardHeader>
+        <CardContent>
+          <Separator className="my-4" />
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="h-6 bg-muted rounded"></div>
+            <div className="h-6 bg-muted rounded"></div>
+          </div>
+          <Separator className="my-4" />
+          <div className="space-y-2">
+            <div className="h-5 bg-muted rounded"></div>
+            <div className="h-5 bg-muted rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="animate-fade-in">
       <CardHeader className="text-center pb-0">
         <div className="relative w-24 h-24 mx-auto mb-4">
           <Avatar className="w-24 h-24 border-4 border-background">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="text-2xl">{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={profile.avatar} alt={profile.name} />
+            <AvatarFallback className="text-2xl">{profile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="absolute bottom-0 right-0">
             <Button size="icon" variant="secondary" className="rounded-full w-8 h-8">
@@ -123,7 +204,7 @@ export function UserProfile({ user }: UserProfileProps) {
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
             </CardTitle>
-            <div className="text-sm text-muted-foreground">@{user.username}</div>
+            <div className="text-sm text-muted-foreground">@{profile.username}</div>
             
             {profile.bio && (
               <p className="mt-2 text-sm">{profile.bio}</p>
@@ -137,11 +218,11 @@ export function UserProfile({ user }: UserProfileProps) {
         
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
-            <p className="text-2xl font-semibold">{user.friendCount}</p>
+            <p className="text-2xl font-semibold">{profile.friendCount}</p>
             <p className="text-sm text-muted-foreground">Friends</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold">{user.postCount}</p>
+            <p className="text-2xl font-semibold">{profile.postCount}</p>
             <p className="text-sm text-muted-foreground">Posts</p>
           </div>
         </div>
@@ -151,11 +232,11 @@ export function UserProfile({ user }: UserProfileProps) {
         <div className="space-y-2">
           <div className="flex items-center text-sm">
             <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>{user.email}</span>
+            <span>{profile.email}</span>
           </div>
           <div className="flex items-center text-sm">
             <AtSign className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>@{user.username}</span>
+            <span>@{profile.username}</span>
           </div>
         </div>
       </CardContent>
@@ -163,19 +244,4 @@ export function UserProfile({ user }: UserProfileProps) {
   );
 }
 
-// Default export with mock data
-export default function UserProfileSection() {
-  // This would normally come from context or API
-  const mockUser = {
-    id: '1',
-    name: 'Demo User',
-    username: 'demo',
-    email: 'demo@example.com',
-    avatar: 'https://i.pravatar.cc/150?u=demo',
-    bio: 'Software engineer and tech enthusiast',
-    friendCount: 42,
-    postCount: 18,
-  };
-  
-  return <UserProfile user={mockUser} />;
-}
+export default UserProfile;

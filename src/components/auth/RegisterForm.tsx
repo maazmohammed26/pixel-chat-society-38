@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { AtSign, Lock, Mail, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '@/utils/authUtils';
 
 const registerFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
@@ -23,6 +24,7 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>;
 export function RegisterForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
@@ -38,45 +40,38 @@ export function RegisterForm() {
     setIsLoading(true);
     
     try {
-      // TODO: Replace with actual API call to register users
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await registerUser(data.email, data.password, data.name, data.username);
       
-      // Simulate validation for email already registered
-      if (data.email === 'test@example.com') {
+      toast({
+        title: 'Registration successful!',
+        description: 'Your account has been created. Please sign in.',
+      });
+      
+      // Redirect to login after successful registration
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Registration error', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('email')) {
         toast({
           variant: 'destructive',
           title: 'Registration failed',
           description: 'Email is already registered',
         });
-        return;
-      }
-      
-      // Simulate validation for username taken
-      if (data.username === 'admin') {
+      } else if (error.message.includes('username')) {
         toast({
           variant: 'destructive',
           title: 'Registration failed',
           description: 'Username is already taken',
         });
-        return;
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Registration failed',
+          description: error.message || 'Something went wrong. Please try again.',
+        });
       }
-      
-      toast({
-        title: 'Registration successful!',
-        description: 'Your account has been created.',
-      });
-      
-      // Redirect to login after successful registration
-      // navigate('/login');
-      console.log('Registration successful', data);
-      
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Registration failed',
-        description: 'Something went wrong. Please try again.',
-      });
-      console.error('Registration error', error);
     } finally {
       setIsLoading(false);
     }

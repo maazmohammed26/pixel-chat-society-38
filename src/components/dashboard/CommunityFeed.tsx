@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -7,22 +7,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Heart, MessageCircle, Share, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { supabase } from '@/integrations/supabase/client';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface PostProps {
   id: string;
   author: {
+    id: string;
     name: string;
     username: string;
     avatar: string;
   };
   content: string;
-  timestamp: string;
+  created_at: string;
   likes: number;
   comments: number;
   liked?: boolean;
 }
 
-export function PostCard({ post }: { post: PostProps }) {
+export function PostCard({ post, onAction }: { 
+  post: PostProps; 
+  onAction?: () => void;
+}) {
   const [isLiked, setIsLiked] = useState(post.liked || false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showCommentForm, setShowCommentForm] = useState(false);
@@ -36,6 +42,11 @@ export function PostCard({ post }: { post: PostProps }) {
       setLikeCount(likeCount + 1);
     }
     setIsLiked(!isLiked);
+    
+    toast({
+      title: isLiked ? 'Post unliked' : 'Post liked!',
+      description: isLiked ? 'You have unliked this post' : 'You have liked this post',
+    });
   };
   
   const handleShare = () => {
@@ -61,6 +72,14 @@ export function PostCard({ post }: { post: PostProps }) {
     setShowCommentForm(false);
   };
 
+  // Format the timestamp
+  const timestamp = post.created_at ? 
+    formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) : '';
+  
+  // Convert UTC date to local time for tooltip
+  const fullDate = post.created_at ? 
+    format(new Date(post.created_at), 'PPpp') : '';
+
   return (
     <Card className="mb-4">
       <CardHeader className="pb-3 space-y-0 flex flex-row items-center gap-3">
@@ -70,7 +89,9 @@ export function PostCard({ post }: { post: PostProps }) {
         </Avatar>
         <div className="flex-1">
           <p className="font-medium">{post.author.name}</p>
-          <p className="text-xs text-muted-foreground">@{post.author.username} · {post.timestamp}</p>
+          <p className="text-xs text-muted-foreground">
+            @{post.author.username} · <span title={fullDate}>{timestamp}</span>
+          </p>
         </div>
       </CardHeader>
       <CardContent>
@@ -132,28 +153,57 @@ export function PostCard({ post }: { post: PostProps }) {
   );
 }
 
-export function PostForm() {
+export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
   const [content, setContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const { toast } = useToast();
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
     
     setIsPosting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'You must be logged in to post',
+        });
+        return;
+      }
+      
+      // Insert the post
+      await supabase
+        .from('posts')
+        .insert([
+          { user_id: user.id, content }
+        ]);
+      
       toast({
         title: 'Post created!',
         description: 'Your post has been shared with the community.',
       });
-      setContent('');
-      setIsPosting(false);
       
-      // In a real app, we would add the new post to the state
-    }, 1000);
+      setContent('');
+      
+      // Callback to refresh posts
+      if (onPostCreated) {
+        onPostCreated();
+      }
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to create post',
+      });
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
@@ -182,56 +232,110 @@ export function PostForm() {
 }
 
 export function CommunityFeed() {
-  // Mock data for posts
-  const posts: PostProps[] = [
-    {
-      id: '1',
-      author: {
-        name: 'Jane Smith',
-        username: 'janesmith',
-        avatar: 'https://i.pravatar.cc/150?u=janesmith',
-      },
-      content: 'Just discovered this amazing new social platform! The UI is so clean and intuitive. Loving the community so far. What do you all think?',
-      timestamp: '2m ago',
-      likes: 12,
-      comments: 4,
-      liked: true,
-    },
-    {
-      id: '2',
-      author: {
-        name: 'John Doe',
-        username: 'johndoe',
-        avatar: 'https://i.pravatar.cc/150?u=johndoe',
-      },
-      content: 'Working on a new project today. Really excited about the possibilities of AI in modern web applications!',
-      timestamp: '1h ago',
-      likes: 8,
-      comments: 2,
-    },
-    {
-      id: '3',
-      author: {
-        name: 'Alex Johnson',
-        username: 'alexj',
-        avatar: 'https://i.pravatar.cc/150?u=alexj',
-      },
-      content: 'Anyone here interested in forming a group for discussing web development best practices? Let me know in the comments!',
-      timestamp: '3h ago',
-      likes: 15,
-      comments: 7,
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<PostProps[]>([]);
+  const { toast } = useToast();
+  
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: postsData, error } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          content,
+          created_at,
+          profiles:user_id (id, name, username, avatar)
+        `)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      // Format posts data
+      const formattedPosts = postsData.map((post: any) => ({
+        id: post.id,
+        content: post.content,
+        created_at: post.created_at,
+        author: {
+          id: post.profiles.id,
+          name: post.profiles.name,
+          username: post.profiles.username,
+          avatar: post.profiles.avatar,
+        },
+        likes: 0,
+        comments: 0
+      }));
+      
+      setPosts(formattedPosts);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load posts',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchPosts();
+    
+    // Set up realtime subscription for new posts
+    const postsSubscription = supabase
+      .channel('public:posts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
+        fetchPosts();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(postsSubscription);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="animate-fade-in">
-      <PostForm />
+      <PostForm onPostCreated={fetchPosts} />
       <h2 className="text-xl font-semibold mb-4">Community Feed</h2>
-      <div className="space-y-4">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-      </div>
+      
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Card key={i} className="mb-4 animate-pulse">
+              <CardHeader className="flex flex-row items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-muted"></div>
+                <div>
+                  <div className="h-5 bg-muted rounded w-24"></div>
+                  <div className="h-3 bg-muted rounded w-32 mt-1"></div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-20 bg-muted rounded"></div>
+              </CardContent>
+              <CardFooter className="flex gap-4">
+                <div className="h-8 w-16 bg-muted rounded"></div>
+                <div className="h-8 w-16 bg-muted rounded"></div>
+                <div className="h-8 w-16 bg-muted rounded"></div>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      ) : posts.length > 0 ? (
+        <div className="space-y-4">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} onAction={fetchPosts} />
+          ))}
+        </div>
+      ) : (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground mb-4">No posts yet!</p>
+          <p>Be the first to share something with the community.</p>
+        </Card>
+      )}
     </div>
   );
 }
