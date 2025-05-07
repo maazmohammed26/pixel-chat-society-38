@@ -60,16 +60,16 @@ export function PostCard({ post, onAction }: {
       if (isLiked) {
         // Unlike
         await supabase
-          .from('likes')
+          .from('likes' as any)
           .delete()
-          .match({ user_id: user.id, post_id: post.id });
+          .match({ user_id: user.id, post_id: post.id } as any);
         
         setLikeCount(prev => Math.max(0, prev - 1));
       } else {
         // Like
         await supabase
-          .from('likes')
-          .insert({ user_id: user.id, post_id: post.id });
+          .from('likes' as any)
+          .insert({ user_id: user.id, post_id: post.id } as any);
         
         setLikeCount(prev => prev + 1);
       }
@@ -109,19 +109,18 @@ export function PostCard({ post, onAction }: {
       setIsLoadingComments(true);
       
       const { data, error } = await supabase
-        .from('comments')
+        .from('comments' as any)
         .select(`
           id,
           content,
           created_at,
           profiles:user_id (id, name, username, avatar)
         `)
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: true });
+        .eq('post_id', post.id);
         
       if (error) throw error;
       
-      const formattedComments = data.map(comment => ({
+      const formattedComments = data.map((comment: any) => ({
         id: comment.id,
         content: comment.content,
         created_at: comment.created_at,
@@ -172,12 +171,12 @@ export function PostCard({ post, onAction }: {
         
       // Insert comment
       const { data, error } = await supabase
-        .from('comments')
+        .from('comments' as any)
         .insert({
           post_id: post.id,
           user_id: user.id,
           content: commentText.trim()
-        })
+        } as any)
         .select()
         .single();
         
@@ -455,13 +454,13 @@ export function CommunityFeed() {
       const postsWithLikes = await Promise.all(postsData.map(async (post) => {
         // Count likes
         const { count: likesCount } = await supabase
-          .from('likes')
+          .from('likes' as any)
           .select('id', { count: 'exact', head: true })
           .eq('post_id', post.id);
           
         // Count comments
         const { count: commentsCount } = await supabase
-          .from('comments')
+          .from('comments' as any)
           .select('id', { count: 'exact', head: true })
           .eq('post_id', post.id);
           
@@ -469,7 +468,7 @@ export function CommunityFeed() {
         let hasLiked = false;
         if (user) {
           const { data: userLike } = await supabase
-            .from('likes')
+            .from('likes' as any)
             .select('id')
             .eq('post_id', post.id)
             .eq('user_id', user.id)
