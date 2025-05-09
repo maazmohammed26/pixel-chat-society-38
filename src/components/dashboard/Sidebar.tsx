@@ -153,7 +153,7 @@ export function Sidebar() {
   }
   
   return (
-    <aside className="w-64 border-r h-screen sticky top-0 bg-background">
+    <aside className="w-64 border-r h-screen sticky top-0 bg-background hidden">
       <SidebarContent />
     </aside>
   );

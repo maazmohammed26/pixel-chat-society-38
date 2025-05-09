@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface UserProfile {
   id: string;
@@ -29,7 +30,7 @@ export function UserSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [open, setOpen] = useState(false);
   const [requestInProgress, setRequestInProgress] = useState<Record<string, boolean>>({});
-  const [isUsernameSearch, setIsUsernameSearch] = useState(false);
+  const [searchMode, setSearchMode] = useState<'all' | 'username'>('all');
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -56,14 +57,14 @@ export function UserSearch() {
         .from('profiles')
         .select('id, name, username, avatar');
         
-      // If searching by username only (with @), remove the @ and search only username
-      if (searchTerm.startsWith('@')) {
-        const username = searchTerm.substring(1);
+      // If searching by username only, search only username
+      if (searchMode === 'username') {
+        // Remove @ symbol if present
+        const username = searchTerm.startsWith('@') ? searchTerm.substring(1) : searchTerm;
         query = query.ilike('username', `%${username}%`);
-        setIsUsernameSearch(true);
       } else {
+        // Search both name and username
         query = query.or(`name.ilike.%${searchTerm}%,username.ilike.%${searchTerm}%`);
-        setIsUsernameSearch(false);
       }
       
       const { data, error } = await query
@@ -75,25 +76,46 @@ export function UserSearch() {
       // Filter out existing friends or pending requests
       const { data: connections, error: connectionsError } = await supabase
         .from('friends')
-        .select('sender_id, receiver_id, status')
+        .select('id, sender_id, receiver_id, status')
         .or(`sender_id.eq.${currentUser.user.id},receiver_id.eq.${currentUser.user.id}`);
       
       if (connectionsError) {
         console.error('Error fetching connections:', connectionsError);
         // Continue with search results without filtering
-        setResults(data);
+        setResults(data || []);
         return;
       }
       
-      const filteredResults = data.filter(user => {
+      // Prepare the results with relationship status
+      const resultsWithStatus = data?.map(user => {
         // Check if there's an existing connection
-        return !connections?.some(conn => 
+        const connection = connections?.find(conn => 
           (conn.sender_id === currentUser.user?.id && conn.receiver_id === user.id) || 
           (conn.receiver_id === currentUser.user?.id && conn.sender_id === user.id)
         );
-      });
+        
+        let status = 'none';
+        let relationshipId = null;
+        
+        if (connection) {
+          if (connection.status === 'accepted') {
+            status = 'friend';
+          } else if (connection.sender_id === currentUser.user.id) {
+            status = 'pending';
+          } else {
+            status = 'request';
+          }
+          relationshipId = connection.id;
+        }
+        
+        return {
+          ...user,
+          status,
+          relationshipId
+        };
+      }) || [];
       
-      setResults(filteredResults);
+      setResults(resultsWithStatus);
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
@@ -146,7 +168,9 @@ export function UserSearch() {
       if (error) throw error;
       
       // Update results to remove user
-      setResults(prevResults => prevResults.filter(u => u.id !== userId));
+      setResults(prevResults => prevResults.map(u => 
+        u.id === userId ? { ...u, status: 'pending' } : u
+      ));
       
       toast({
         title: 'Friend request sent',
@@ -159,6 +183,39 @@ export function UserSearch() {
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to send friend request. Please try again.',
+      });
+    } finally {
+      setRequestInProgress(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleAcceptRequest = async (relationshipId: string, userId: string) => {
+    try {
+      setRequestInProgress(prev => ({ ...prev, [userId]: true }));
+      
+      const { error } = await supabase
+        .from('friends')
+        .update({ status: 'accepted' })
+        .eq('id', relationshipId);
+        
+      if (error) throw error;
+      
+      // Update the status in the UI
+      setResults(prevResults => prevResults.map(u => 
+        u.id === userId ? { ...u, status: 'friend' } : u
+      ));
+      
+      toast({
+        title: 'Friend request accepted',
+        description: 'You are now friends!',
+        className: 'bg-social-dark-green text-white',
+      });
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to accept friend request. Please try again.',
       });
     } finally {
       setRequestInProgress(prev => ({ ...prev, [userId]: false }));
@@ -182,9 +239,31 @@ export function UserSearch() {
         <DialogHeader>
           <DialogTitle className="social-gradient bg-clip-text text-transparent">Find Friends</DialogTitle>
         </DialogHeader>
+        
+        <Tabs 
+          value={searchMode} 
+          onValueChange={(value) => setSearchMode(value as 'all' | 'username')}
+          className="mt-4"
+        >
+          <TabsList className="nav-tabs w-full">
+            <TabsTrigger 
+              value="all" 
+              className={`nav-tab ${searchMode === 'all' ? 'active' : ''}`}
+            >
+              Search All
+            </TabsTrigger>
+            <TabsTrigger 
+              value="username" 
+              className={`nav-tab ${searchMode === 'username' ? 'active' : ''}`}
+            >
+              By Username
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
         <form onSubmit={handleSearch} className="mt-4 flex gap-2">
           <Input 
-            placeholder="Search by name or @username..." 
+            placeholder={searchMode === 'username' ? "Search by username..." : "Search by name or username..."} 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 focus-visible:ring-social-dark-green"
@@ -222,30 +301,57 @@ export function UserSearch() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => viewProfile(user.id)}
-                    className="hover-scale"
-                  >
-                    <User className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="default"
-                    onClick={() => sendFriendRequest(user.id)}
-                    disabled={requestInProgress[user.id]}
-                    className="bg-social-dark-green hover:bg-social-forest-green text-white"
-                  >
-                    {requestInProgress[user.id] ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-1" />
-                        Add
-                      </>
-                    )}
-                  </Button>
+                  {user.status === 'none' && (
+                    <Button 
+                      size="sm" 
+                      variant="default"
+                      onClick={() => sendFriendRequest(user.id)}
+                      disabled={requestInProgress[user.id]}
+                      className="bg-social-dark-green hover:bg-social-forest-green text-white"
+                    >
+                      {requestInProgress[user.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          Add
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {user.status === 'request' && user.relationshipId && (
+                    <Button 
+                      size="sm" 
+                      variant="default"
+                      onClick={() => handleAcceptRequest(user.relationshipId!, user.id)}
+                      disabled={requestInProgress[user.id]}
+                      className="bg-social-dark-green hover:bg-social-forest-green text-white"
+                    >
+                      {requestInProgress[user.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Accept</>
+                      )}
+                    </Button>
+                  )}
+                  {user.status === 'pending' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      disabled
+                    >
+                      Pending
+                    </Button>
+                  )}
+                  {user.status === 'friend' && (
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="text-social-dark-green border-social-dark-green"
+                    >
+                      Friend
+                    </Button>
+                  )}
                 </div>
               </div>
             ))
