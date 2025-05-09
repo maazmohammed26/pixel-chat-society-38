@@ -38,19 +38,95 @@ export function Notifications() {
       if (!user) return;
 
       // Get friend requests
-      const { data: friendRequests } = await supabase
+      const { data: friendRequests, error: friendError } = await supabase
         .from('friends')
         .select(`
           id,
           created_at,
-          profiles:sender_id (id, name, username, avatar)
+          sender:sender_id (id, name, username, avatar)
         `)
         .eq('receiver_id', user.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
+        
+      if (friendError) throw friendError;
+      
+      // Get likes on my posts
+      const { data: myPosts } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('user_id', user.id);
+      
+      const postIds = myPosts?.map(post => post.id) || [];
+      
+      let likeNotifications: any[] = [];
+      if (postIds.length > 0) {
+        const { data: likes, error: likesError } = await supabase
+          .from('likes')
+          .select(`
+            id,
+            created_at,
+            post_id,
+            liker:user_id (id, name, username, avatar)
+          `)
+          .in('post_id', postIds)
+          .neq('user_id', user.id) // Don't include self-likes
+          .order('created_at', { ascending: false })
+          .limit(5);
+          
+        if (likesError) throw likesError;
+        
+        likeNotifications = likes?.map(like => ({
+          id: like.id,
+          type: 'like' as const,
+          content: 'liked your post',
+          read: false,
+          created_at: like.created_at,
+          sender: {
+            id: like.liker.id,
+            name: like.liker.name,
+            username: like.liker.username,
+            avatar: like.liker.avatar,
+          },
+          reference_id: like.post_id
+        })) || [];
+      }
+      
+      // Get comments on my posts
+      let commentNotifications: any[] = [];
+      if (postIds.length > 0) {
+        const { data: comments, error: commentsError } = await supabase
+          .from('comments')
+          .select(`
+            id,
+            created_at,
+            post_id,
+            commenter:user_id (id, name, username, avatar)
+          `)
+          .in('post_id', postIds)
+          .neq('user_id', user.id) // Don't include self-comments
+          .order('created_at', { ascending: false })
+          .limit(5);
+          
+        if (commentsError) throw commentsError;
+        
+        commentNotifications = comments?.map(comment => ({
+          id: comment.id,
+          type: 'comment' as const,
+          content: 'commented on your post',
+          read: false,
+          created_at: comment.created_at,
+          sender: {
+            id: comment.commenter.id,
+            name: comment.commenter.name,
+            username: comment.commenter.username,
+            avatar: comment.commenter.avatar,
+          },
+          reference_id: comment.post_id
+        })) || [];
+      }
 
-      // Get likes and comments (will implement in a future step)
-      // Format notifications
+      // Format all notifications
       const formattedNotifications = [
         ...(friendRequests?.map(request => ({
           id: request.id,
@@ -59,14 +135,16 @@ export function Notifications() {
           read: false,
           created_at: request.created_at,
           sender: {
-            id: request.profiles.id,
-            name: request.profiles.name,
-            username: request.profiles.username,
-            avatar: request.profiles.avatar,
+            id: request.sender.id,
+            name: request.sender.name,
+            username: request.sender.username,
+            avatar: request.sender.avatar,
           },
           reference_id: request.id
-        })) || [])
-      ];
+        })) || []),
+        ...likeNotifications,
+        ...commentNotifications
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       setNotifications(formattedNotifications);
     } catch (error) {
@@ -130,19 +208,25 @@ export function Notifications() {
   useEffect(() => {
     fetchNotifications();
 
-    // Set up realtime subscription
-    const notificationsChannel = supabase
-      .channel('public:friends')
+    // Set up realtime subscription for notifications
+    const channel = supabase
+      .channel('notification-changes')
       .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'friends' }, 
-        (payload) => {
-          fetchNotifications();
-        }
+        { event: '*', schema: 'public', table: 'friends' }, 
+        () => fetchNotifications()
+      )
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'likes' }, 
+        () => fetchNotifications()
+      )
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'comments' }, 
+        () => fetchNotifications()
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(channel);
     };
   }, []);
 

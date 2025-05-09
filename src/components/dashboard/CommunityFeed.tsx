@@ -60,16 +60,16 @@ export function PostCard({ post, onAction }: {
       if (isLiked) {
         // Unlike
         await supabase
-          .from('likes' as any)
+          .from('likes')
           .delete()
-          .match({ user_id: user.id, post_id: post.id } as any);
+          .match({ user_id: user.id, post_id: post.id });
         
         setLikeCount(prev => Math.max(0, prev - 1));
       } else {
         // Like
         await supabase
-          .from('likes' as any)
-          .insert({ user_id: user.id, post_id: post.id } as any);
+          .from('likes')
+          .insert({ user_id: user.id, post_id: post.id });
         
         setLikeCount(prev => prev + 1);
       }
@@ -109,7 +109,7 @@ export function PostCard({ post, onAction }: {
       setIsLoadingComments(true);
       
       const { data, error } = await supabase
-        .from('comments' as any)
+        .from('comments')
         .select(`
           id,
           content,
@@ -120,6 +120,7 @@ export function PostCard({ post, onAction }: {
         
       if (error) throw error;
       
+      // Handle the properly typed data
       const formattedComments = data.map((comment: any) => ({
         id: comment.id,
         content: comment.content,
@@ -171,12 +172,12 @@ export function PostCard({ post, onAction }: {
         
       // Insert comment
       const { data, error } = await supabase
-        .from('comments' as any)
+        .from('comments')
         .insert({
           post_id: post.id,
           user_id: user.id,
           content: commentText.trim()
-        } as any)
+        })
         .select()
         .single();
         
@@ -454,13 +455,13 @@ export function CommunityFeed() {
       const postsWithLikes = await Promise.all(postsData.map(async (post) => {
         // Count likes
         const { count: likesCount } = await supabase
-          .from('likes' as any)
+          .from('likes')
           .select('id', { count: 'exact', head: true })
           .eq('post_id', post.id);
           
         // Count comments
         const { count: commentsCount } = await supabase
-          .from('comments' as any)
+          .from('comments')
           .select('id', { count: 'exact', head: true })
           .eq('post_id', post.id);
           
@@ -468,7 +469,7 @@ export function CommunityFeed() {
         let hasLiked = false;
         if (user) {
           const { data: userLike } = await supabase
-            .from('likes' as any)
+            .from('likes')
             .select('id')
             .eq('post_id', post.id)
             .eq('user_id', user.id)
@@ -509,35 +510,32 @@ export function CommunityFeed() {
   useEffect(() => {
     fetchPosts();
     
-    // Set up realtime subscription for new posts
-    const postsSubscription = supabase
-      .channel('public:posts')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-        fetchPosts();
-      })
-      .subscribe();
-    
-    // Set up subscriptions for new comments and likes
-    const commentsSubscription = supabase
-      .channel('public:comments')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => {
-        fetchPosts(); 
-      })
-      .subscribe();
-      
-    const likesSubscription = supabase
-      .channel('public:likes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
-        fetchPosts();
-      })
+    // Set up realtime subscription for posts, comments and likes
+    const channel = supabase
+      .channel('public:posts-changes')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'posts' }, 
+        () => {
+          fetchPosts();
+        }
+      )
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'comments' }, 
+        () => {
+          fetchPosts();
+        }
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'likes' }, 
+        () => {
+          fetchPosts();
+        }
+      )
       .subscribe();
       
     return () => {
-      supabase.removeChannel(postsSubscription);
-      supabase.removeChannel(commentsSubscription);
-      supabase.removeChannel(likesSubscription);
+      supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

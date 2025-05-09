@@ -64,13 +64,13 @@ export function Messages() {
         });
       }
 
-      // Get accepted friends
+      // Get accepted friends - using specific column hinting to avoid ambiguity
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
-          profiles:sender_id (id, name, username, avatar),
-          profiles:receiver_id (id, name, username, avatar)
+          sender:sender_id (id, name, username, avatar),
+          receiver:receiver_id (id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -79,10 +79,8 @@ export function Messages() {
 
       // Format friends data
       const formattedFriends = friendsData.map(friend => {
-        const isSender = friend.profiles.sender_id.id !== user.id;
-        const friendProfile = isSender ? 
-          friend.profiles.sender_id : 
-          friend.profiles.receiver_id;
+        const isSender = friend.sender.id !== user.id;
+        const friendProfile = isSender ? friend.sender : friend.receiver;
         
         return {
           id: friendProfile.id,
@@ -124,7 +122,7 @@ export function Messages() {
           receiver_id,
           content,
           created_at,
-          profiles:sender_id (name, avatar)
+          sender:sender_id (name, avatar)
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
         .order('created_at');
@@ -133,6 +131,14 @@ export function Messages() {
 
       setMessages(messagesData);
       scrollToBottom();
+      
+      // Mark received messages as read
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('sender_id', friendId)
+        .eq('receiver_id', user.id)
+        .eq('read', false);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -196,8 +202,8 @@ export function Messages() {
     fetchFriends();
     
     // Set up realtime subscription for messages
-    const messagesChannel = supabase
-      .channel('public:messages')
+    const channel = supabase
+      .channel('messages-changes')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'messages' }, 
         (payload) => {
@@ -224,15 +230,27 @@ export function Messages() {
                     }
                   }]);
                   scrollToBottom();
+                  
+                  // Mark message as read if we're the receiver
+                  if (newMessage.receiver_id === currentUser?.id) {
+                    supabase
+                      .from('messages')
+                      .update({ read: true })
+                      .eq('id', newMessage.id);
+                  }
                 }
               });
+          } else if (newMessage.receiver_id === currentUser?.id) {
+            // If we received a message from someone else, refresh friends list
+            // to update unread counts
+            fetchFriends();
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(channel);
     };
   }, [selectedFriend, currentUser]);
 

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -8,13 +8,18 @@ import {
   Bell, 
   Settings, 
   LogOut,
-  User
+  User,
+  Menu,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { supabase } from '@/integrations/supabase/client';
+import { UserSearch } from './UserSearch';
+import { logoutUser } from '@/utils/authUtils';
 
 interface SidebarLinkProps {
   to: string;
@@ -47,26 +52,51 @@ interface SidebarContentProps {
 function SidebarContent({ onLinkClick }: SidebarContentProps) {
   const location = useLocation();
   const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
   
-  // Get user from localStorage (in a real app this would be from a context)
-  const userString = localStorage.getItem('user');
-  const user = userString ? JSON.parse(userString) : {
-    name: 'Guest',
-    username: 'guest',
-    avatar: '',
-  };
+  React.useEffect(() => {
+    async function getUserProfile() {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) return;
+        
+        const { data } = await supabase
+          .from('profiles')
+          .select('name, username, avatar')
+          .eq('id', authUser.id)
+          .single();
+          
+        if (data) {
+          setUser({
+            id: authUser.id,
+            name: data.name || 'User',
+            username: data.username || 'guest',
+            avatar: data.avatar || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    }
+    
+    getUserProfile();
+  }, []);
   
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    toast({
-      title: 'Logged out',
-      description: 'You have been successfully logged out.',
-    });
-    
-    // Redirect to home/login
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      toast({
+        title: 'Logged out',
+        description: 'You have been successfully logged out.',
+      });
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to log out',
+      });
+    }
   };
   
   const links = [
@@ -82,13 +112,17 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 flex items-center gap-3">
         <Avatar>
-          <AvatarImage src={user.avatar} alt={user.name} />
-          <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          <AvatarImage src={user?.avatar} alt={user?.name} />
+          <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || 'GU'}</AvatarFallback>
         </Avatar>
-        <div>
-          <h3 className="font-medium">{user.name}</h3>
-          <p className="text-xs text-muted-foreground">@{user.username}</p>
+        <div className="flex-1">
+          <h3 className="font-medium">{user?.name || 'Guest'}</h3>
+          <p className="text-xs text-muted-foreground">@{user?.username || 'guest'}</p>
         </div>
+      </div>
+      
+      <div className="px-4 mt-2">
+        <UserSearch />
       </div>
       
       <nav className="mt-4 px-2 flex-1">
@@ -126,7 +160,7 @@ export function Sidebar() {
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="fixed top-4 left-4 z-50">
-            <Users className="h-5 w-5" />
+            <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0">
