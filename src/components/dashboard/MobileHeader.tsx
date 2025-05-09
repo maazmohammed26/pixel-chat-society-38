@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { 
   Home, 
@@ -25,8 +25,9 @@ interface MobileTab {
 export function MobileHeader() {
   const location = useLocation();
   const [user, setUser] = useState<any>(null);
+  const [open, setOpen] = useState(false);
   
-  React.useEffect(() => {
+  useEffect(() => {
     async function getUserProfile() {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -58,7 +59,7 @@ export function MobileHeader() {
     { path: '/dashboard', label: 'Home', icon: <Home className="h-5 w-5" /> },
     { path: '/friends', label: 'Friends', icon: <Users className="h-5 w-5" /> },
     { path: '/messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
-    { path: '/notifications', label: 'Alerts', icon: <Bell className="h-5 w-5" /> },
+    { path: '/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
     { path: '/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
   ];
 
@@ -68,7 +69,7 @@ export function MobileHeader() {
     <header className="fixed top-0 left-0 w-full z-50 bg-background/90 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sheet>
+          <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="lg:hidden">
                 <Menu className="h-5 w-5" />
@@ -80,7 +81,7 @@ export function MobileHeader() {
                   {user?.avatar ? (
                     <AvatarImage src={user.avatar} alt={user?.name} />
                   ) : (
-                    <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                    <AvatarFallback className="bg-social-dark-green text-white">
                       {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
                     </AvatarFallback>
                   )}
@@ -104,13 +105,13 @@ export function MobileHeader() {
           {user?.avatar ? (
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.avatar} alt={user?.name} />
-              <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+              <AvatarFallback className="bg-social-dark-green text-white">
                 {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
               </AvatarFallback>
             </Avatar>
           ) : (
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+              <AvatarFallback className="bg-social-dark-green text-white">
                 {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
               </AvatarFallback>
             </Avatar>
@@ -125,8 +126,8 @@ export function MobileHeader() {
             to={tab.path} 
             className={`flex flex-col items-center justify-center py-2 text-xs ${
               isActive(tab.path) 
-                ? 'text-social-dark-green border-t-2 border-social-dark-green' 
-                : 'text-muted-foreground'
+                ? 'text-white bg-social-dark-green' 
+                : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             {tab.icon}

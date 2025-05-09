@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -70,8 +70,8 @@ export function Messages() {
         .select(`
           id,
           sender_id, receiver_id,
-          sender:sender_id(id, name, username, avatar),
-          receiver:receiver_id(id, name, username, avatar)
+          profiles!friends_sender_id_fkey(id, name, username, avatar),
+          profiles!friends_receiver_id_fkey(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -84,7 +84,9 @@ export function Messages() {
       friendsData?.forEach(friend => {
         // Determine if the current user is the sender or receiver
         const isSender = friend.sender_id === user.id;
-        const friendProfile = isSender ? friend.receiver : friend.sender;
+        const friendProfile = isSender 
+          ? friend.profiles["friends_receiver_id_fkey"] 
+          : friend.profiles["friends_sender_id_fkey"];
         
         if (friendProfile && friendProfile.id) {
           formattedFriends.push({
@@ -128,7 +130,7 @@ export function Messages() {
           receiver_id,
           content,
           created_at,
-          sender:sender_id(name, avatar)
+          profiles!messages_sender_id_fkey(name, avatar)
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
         .order('created_at');
@@ -142,8 +144,8 @@ export function Messages() {
         content: message.content,
         created_at: message.created_at,
         sender: {
-          name: message.sender?.name || 'Unknown',
-          avatar: message.sender?.avatar || ''
+          name: message.profiles?.name || 'Unknown',
+          avatar: message.profiles?.avatar || ''
         }
       }));
 
@@ -283,7 +285,7 @@ export function Messages() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedFriend, currentUser]);
+  }, [selectedFriend, currentUser, toast]);
 
   useEffect(() => {
     if (selectedFriend) {
@@ -334,7 +336,7 @@ export function Messages() {
                     key={friend.id}
                     className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
                       selectedFriend?.id === friend.id 
-                        ? 'bg-accent/20 text-accent' 
+                        ? 'bg-social-dark-green text-white' 
                         : 'hover:bg-muted/50'
                     }`}
                     onClick={() => setSelectedFriend(friend)}
@@ -343,7 +345,7 @@ export function Messages() {
                       {friend.avatar ? (
                         <AvatarImage src={friend.avatar} />
                       ) : (
-                        <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                        <AvatarFallback className="bg-social-dark-green text-white">
                           {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
                         </AvatarFallback>
                       )}
@@ -359,7 +361,7 @@ export function Messages() {
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">No friends yet</p>
                 <p className="text-sm mt-1">Add friends to start chatting</p>
-                <Button variant="outline" className="mt-4" asChild>
+                <Button variant="outline" className="mt-4 bg-social-dark-green text-white hover:bg-social-forest-green" asChild>
                   <a href="/friends">Find Friends</a>
                 </Button>
               </div>
@@ -376,7 +378,7 @@ export function Messages() {
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                      <AvatarFallback className="bg-social-dark-green text-white">
                         {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     )}
@@ -401,7 +403,7 @@ export function Messages() {
                               {message.sender?.avatar ? (
                                 <AvatarImage src={message.sender.avatar} />
                               ) : (
-                                <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                                <AvatarFallback className="bg-social-dark-green text-white">
                                   {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
                                 </AvatarFallback>
                               )}
@@ -429,7 +431,7 @@ export function Messages() {
                   <div className="flex gap-2">
                     <Textarea 
                       placeholder="Type a message..." 
-                      className="flex-1 min-h-[60px] max-h-[120px] focus:ring-social-dark-green"
+                      className="flex-1 min-h-[60px] max-h-[120px] focus-visible:ring-social-dark-green"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={handleKeyDown}

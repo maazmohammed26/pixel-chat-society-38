@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Loader2, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-interface User {
+interface UserProfile {
   id: string;
   name: string;
   username: string;
@@ -24,11 +25,13 @@ interface User {
 
 export function UserSearch() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState<User[]>([]);
+  const [results, setResults] = useState<UserProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [open, setOpen] = useState(false);
   const [requestInProgress, setRequestInProgress] = useState<Record<string, boolean>>({});
+  const [isUsernameSearch, setIsUsernameSearch] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,10 +52,21 @@ export function UserSearch() {
       }
       
       // Search profiles by name or username
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
-        .select('id, name, username, avatar')
-        .or(`name.ilike.%${searchTerm}%,username.ilike.%${searchTerm}%`)
+        .select('id, name, username, avatar');
+        
+      // If searching by username only (with @), remove the @ and search only username
+      if (searchTerm.startsWith('@')) {
+        const username = searchTerm.substring(1);
+        query = query.ilike('username', `%${username}%`);
+        setIsUsernameSearch(true);
+      } else {
+        query = query.or(`name.ilike.%${searchTerm}%,username.ilike.%${searchTerm}%`);
+        setIsUsernameSearch(false);
+      }
+      
+      const { data, error } = await query
         .neq('id', currentUser.user.id)
         .limit(10);
         
@@ -150,6 +164,11 @@ export function UserSearch() {
       setRequestInProgress(prev => ({ ...prev, [userId]: false }));
     }
   };
+
+  const viewProfile = (userId: string) => {
+    setOpen(false);
+    navigate(`/profile/${userId}`);
+  };
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -165,10 +184,10 @@ export function UserSearch() {
         </DialogHeader>
         <form onSubmit={handleSearch} className="mt-4 flex gap-2">
           <Input 
-            placeholder="Search by name or username..." 
+            placeholder="Search by name or @username..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 focus:ring-social-dark-green"
+            className="flex-1 focus-visible:ring-social-dark-green"
           />
           <Button 
             type="submit" 
@@ -187,12 +206,12 @@ export function UserSearch() {
           {results.length > 0 ? (
             results.map(user => (
               <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg animate-fade-in">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => viewProfile(user.id)}>
                   <Avatar>
                     {user.avatar ? (
                       <AvatarImage src={user.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                      <AvatarFallback className="bg-social-dark-green text-white">
                         {user.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     )}
@@ -202,22 +221,32 @@ export function UserSearch() {
                     <p className="text-sm text-muted-foreground">@{user.username}</p>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="default"
-                  onClick={() => sendFriendRequest(user.id)}
-                  disabled={requestInProgress[user.id]}
-                  className="bg-social-dark-green hover:bg-social-forest-green text-white"
-                >
-                  {requestInProgress[user.id] ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Add
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => viewProfile(user.id)}
+                    className="hover-scale"
+                  >
+                    <User className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="default"
+                    onClick={() => sendFriendRequest(user.id)}
+                    disabled={requestInProgress[user.id]}
+                    className="bg-social-dark-green hover:bg-social-forest-green text-white"
+                  >
+                    {requestInProgress[user.id] ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Add
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ))
           ) : isSearching ? (

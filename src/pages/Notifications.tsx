@@ -43,7 +43,7 @@ export function Notifications() {
         .select(`
           id,
           created_at,
-          sender:sender_id(id, name, username, avatar)
+          profiles!friends_sender_id_fkey(id, name, username, avatar)
         `)
         .eq('receiver_id', user.id)
         .eq('status', 'pending')
@@ -67,7 +67,7 @@ export function Notifications() {
             id,
             created_at,
             post_id,
-            liker:user_id(id, name, username, avatar)
+            profiles!likes_user_id_fkey(id, name, username, avatar)
           `)
           .in('post_id', postIds)
           .neq('user_id', user.id) // Don't include self-likes
@@ -83,10 +83,10 @@ export function Notifications() {
           read: false,
           created_at: like.created_at,
           sender: {
-            id: like.liker.id,
-            name: like.liker.name || 'User',
-            username: like.liker.username || 'guest',
-            avatar: like.liker.avatar || ''
+            id: like.profiles.id,
+            name: like.profiles.name || 'User',
+            username: like.profiles.username || 'guest',
+            avatar: like.profiles.avatar || ''
           },
           reference_id: like.post_id
         })) || [];
@@ -101,7 +101,7 @@ export function Notifications() {
             id,
             created_at,
             post_id,
-            commenter:user_id(id, name, username, avatar)
+            profiles!comments_user_id_fkey(id, name, username, avatar)
           `)
           .in('post_id', postIds)
           .neq('user_id', user.id) // Don't include self-comments
@@ -117,10 +117,10 @@ export function Notifications() {
           read: false,
           created_at: comment.created_at,
           sender: {
-            id: comment.commenter.id,
-            name: comment.commenter.name || 'User',
-            username: comment.commenter.username || 'guest',
-            avatar: comment.commenter.avatar || ''
+            id: comment.profiles.id,
+            name: comment.profiles.name || 'User',
+            username: comment.profiles.username || 'guest',
+            avatar: comment.profiles.avatar || ''
           },
           reference_id: comment.post_id
         })) || [];
@@ -135,10 +135,10 @@ export function Notifications() {
           read: false,
           created_at: request.created_at,
           sender: {
-            id: request.sender?.id || 'unknown',
-            name: request.sender?.name || 'User',
-            username: request.sender?.username || 'guest',
-            avatar: request.sender?.avatar || ''
+            id: request.profiles.id || 'unknown',
+            name: request.profiles.name || 'User',
+            username: request.profiles.username || 'guest',
+            avatar: request.profiles.avatar || ''
           },
           reference_id: request.id
         };
@@ -269,7 +269,7 @@ export function Notifications() {
                   {notification.sender.avatar ? (
                     <AvatarImage src={notification.sender.avatar} alt={notification.sender.name} />
                   ) : (
-                    <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+                    <AvatarFallback className="bg-social-dark-green text-white">
                       {notification.sender.name.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   )}

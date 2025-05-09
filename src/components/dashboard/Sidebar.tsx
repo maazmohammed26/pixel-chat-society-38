@@ -2,13 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Home, 
-  Users, 
-  MessageSquare, 
-  Bell, 
   Settings, 
   LogOut,
-  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +27,7 @@ function SidebarLink({ to, icon, label, isActive, onClick }: SidebarLinkProps) {
       <Button
         variant={isActive ? 'secondary' : 'ghost'}
         className={`w-full justify-start mb-1 ${
-          isActive ? 'bg-accent/20 text-accent' : ''
+          isActive ? 'bg-social-dark-green text-white' : ''
         }`}
       >
         {icon}
@@ -97,11 +92,6 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
   };
   
   const links = [
-    { to: '/dashboard', icon: <Home className="h-5 w-5" />, label: 'Home' },
-    { to: '/friends', icon: <Users className="h-5 w-5" />, label: 'Friends' },
-    { to: '/messages', icon: <MessageSquare className="h-5 w-5" />, label: 'Messages' },
-    { to: '/notifications', icon: <Bell className="h-5 w-5" />, label: 'Notifications' },
-    { to: '/profile', icon: <User className="h-5 w-5" />, label: 'Profile' },
     { to: '/settings', icon: <Settings className="h-5 w-5" />, label: 'Settings' },
   ];
 
@@ -112,7 +102,7 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
           {user?.avatar ? (
             <AvatarImage src={user.avatar} alt={user?.name} />
           ) : (
-            <AvatarFallback className="bg-social-dark-green text-primary-foreground">
+            <AvatarFallback className="bg-social-dark-green text-white">
               {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
             </AvatarFallback>
           )}
@@ -157,7 +147,7 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
 export function Sidebar() {
   const isMobile = useIsMobile();
   
-  // We'll only show sidebar on desktop as we now use MobileHeader on mobile
+  // Hide sidebar completely as we're now using the header tabs on both desktop and mobile
   if (isMobile) {
     return null;
   }
