@@ -75,11 +75,6 @@ export function PostCard({ post, onAction }: {
       }
       
       setIsLiked(!isLiked);
-      
-      toast({
-        title: isLiked ? 'Post unliked' : 'Post liked!',
-        description: isLiked ? 'You have unliked this post' : 'You have liked this post',
-      });
     } catch (error) {
       console.error('Error toggling like:', error);
       toast({
@@ -114,22 +109,22 @@ export function PostCard({ post, onAction }: {
           id,
           content,
           created_at,
-          profiles:user_id (id, name, username, avatar)
+          author:user_id (id, name, username, avatar)
         `)
         .eq('post_id', post.id);
         
       if (error) throw error;
       
-      // Handle the properly typed data
-      const formattedComments = data.map((comment: any) => ({
+      // Format the comments
+      const formattedComments: CommentProps[] = data.map((comment: any) => ({
         id: comment.id,
         content: comment.content,
         created_at: comment.created_at,
         author: {
-          id: comment.profiles.id,
-          name: comment.profiles.name,
-          username: comment.profiles.username,
-          avatar: comment.profiles.avatar,
+          id: comment.author.id,
+          name: comment.author.name || 'User',
+          username: comment.author.username || 'guest',
+          avatar: comment.author.avatar || ''
         }
       }));
       
@@ -190,19 +185,14 @@ export function PostCard({ post, onAction }: {
         created_at: data.created_at,
         author: {
           id: user.id,
-          name: profile.name,
-          username: profile.username,
-          avatar: profile.avatar,
+          name: profile.name || 'User',
+          username: profile.username || 'guest',
+          avatar: profile.avatar || ''
         }
       };
       
       setComments(prev => [...prev, newComment]);
       setCommentText('');
-      
-      toast({
-        title: 'Comment posted!',
-        description: 'Your comment has been added.',
-      });
     } catch (error) {
       console.error('Error posting comment:', error);
       toast({
@@ -224,6 +214,31 @@ export function PostCard({ post, onAction }: {
     }, 100);
   };
 
+  // Set up real-time comment updates
+  useEffect(() => {
+    if (!post.id) return;
+    
+    const channel = supabase
+      .channel(`post-${post.id}-comments`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${post.id}` },
+        async (payload) => {
+          // Only refetch if it's not our own comment (which we already added to the UI)
+          const newComment = payload.new as any;
+          const existingComment = comments.find(c => c.id === newComment.id);
+          
+          if (!existingComment) {
+            await fetchComments();
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [post.id, comments]);
+
   // Format the timestamp
   const timestamp = post.created_at ? 
     formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) : '';
@@ -233,11 +248,16 @@ export function PostCard({ post, onAction }: {
     format(new Date(post.created_at), 'PPpp') : '';
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-4 border-muted/60 hover:border-muted transition-colors overflow-hidden">
       <CardHeader className="pb-3 space-y-0 flex flex-row items-center gap-3">
         <Avatar>
-          <AvatarImage src={post.author.avatar} alt={post.author.name} />
-          <AvatarFallback>{post.author.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          {post.author.avatar ? (
+            <AvatarImage src={post.author.avatar} alt={post.author.name} />
+          ) : (
+            <AvatarFallback className="bg-primary/20 text-primary">
+              {post.author.name.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          )}
         </Avatar>
         <div className="flex-1">
           <p className="font-medium">{post.author.name}</p>
@@ -255,12 +275,12 @@ export function PostCard({ post, onAction }: {
             variant="ghost" 
             size="sm" 
             onClick={handleLike} 
-            className="flex items-center gap-1 text-muted-foreground hover:text-social-magenta"
+            className={`flex items-center gap-1 text-muted-foreground ${isLiked ? 'text-social-magenta' : 'hover:text-social-magenta'}`}
           >
             <Heart 
               className={`h-4 w-4 ${isLiked ? 'fill-social-magenta text-social-magenta' : ''}`} 
             />
-            {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
+            {likeCount > 0 && <span className={`text-xs ${isLiked ? 'text-social-magenta' : ''}`}>{likeCount}</span>}
           </Button>
           <Button 
             variant="ghost" 
@@ -282,7 +302,7 @@ export function PostCard({ post, onAction }: {
         </div>
       </CardFooter>
       {showComments && (
-        <div className="px-4 pb-4 pt-1">
+        <div className="px-4 pb-4 pt-1 bg-muted/10">
           <Separator className="mb-3" />
           
           {/* Comments */}
@@ -301,10 +321,15 @@ export function PostCard({ post, onAction }: {
               </div>
             ) : comments.length > 0 ? (
               comments.map(comment => (
-                <div key={comment.id} className="flex gap-2">
+                <div key={comment.id} className="flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={comment.author.avatar} />
-                    <AvatarFallback>{comment.author.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    {comment.author.avatar ? (
+                      <AvatarImage src={comment.author.avatar} />
+                    ) : (
+                      <AvatarFallback className="bg-primary/20 text-primary">
+                        {comment.author.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <div className="flex-1">
                     <div className="bg-muted rounded-lg p-2">
@@ -337,7 +362,7 @@ export function PostCard({ post, onAction }: {
             />
             <Button 
               size="icon" 
-              className="self-end hover:bg-social-blue"
+              className="self-end hover:bg-social-blue bg-social-blue/90 text-white"
               onClick={submitComment}
               disabled={!commentText.trim() || isSubmitting}
             >
@@ -404,20 +429,20 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
   };
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 overflow-hidden border-muted/60">
       <form onSubmit={handleSubmit}>
         <CardContent className="pt-6">
           <Textarea 
             placeholder="What's on your mind?" 
-            className="min-h-[120px] resize-none"
+            className="min-h-[120px] resize-none focus-visible:ring-social-blue"
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
         </CardContent>
-        <CardFooter className="flex justify-end border-t px-6 py-4">
+        <CardFooter className="flex justify-end border-t px-6 py-4 bg-muted/10">
           <Button 
             type="submit" 
-            className="px-6 btn-gradient"
+            className="px-6 bg-gradient-to-r from-social-blue to-social-magenta hover:opacity-90 text-white"
             disabled={!content.trim() || isPosting}
           >
             {isPosting ? 'Posting...' : 'Post'}
@@ -445,7 +470,7 @@ export function CommunityFeed() {
           id,
           content,
           created_at,
-          profiles:user_id (id, name, username, avatar)
+          author:user_id (id, name, username, avatar)
         `)
         .order('created_at', { ascending: false });
         
@@ -477,16 +502,17 @@ export function CommunityFeed() {
             
           hasLiked = !!userLike;
         }
-          
+        
+        // Create a properly formatted post object  
         return {
           id: post.id,
           content: post.content,
           created_at: post.created_at,
           author: {
-            id: post.profiles.id,
-            name: post.profiles.name,
-            username: post.profiles.username,
-            avatar: post.profiles.avatar,
+            id: post.author?.id || 'unknown',
+            name: post.author?.name || 'User',
+            username: post.author?.username || 'guest',
+            avatar: post.author?.avatar || ''
           },
           likes: likesCount || 0,
           comments: [],
@@ -522,7 +548,7 @@ export function CommunityFeed() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'comments' }, 
         () => {
-          fetchPosts();
+          // We handle comment updates in the PostCard component
         }
       )
       .on('postgres_changes', 
@@ -572,7 +598,7 @@ export function CommunityFeed() {
           ))}
         </div>
       ) : (
-        <Card className="p-8 text-center">
+        <Card className="p-8 text-center border-dashed border-2">
           <p className="text-muted-foreground mb-4">No posts yet!</p>
           <p>Be the first to share something with the community.</p>
         </Card>

@@ -37,13 +37,13 @@ export function Notifications() {
       
       if (!user) return;
 
-      // Get friend requests
+      // Get friend requests with explicit field selections
       const { data: friendRequests, error: friendError } = await supabase
         .from('friends')
         .select(`
           id,
           created_at,
-          sender:sender_id (id, name, username, avatar)
+          sender:sender_id(id, name, username, avatar)
         `)
         .eq('receiver_id', user.id)
         .eq('status', 'pending')
@@ -67,7 +67,7 @@ export function Notifications() {
             id,
             created_at,
             post_id,
-            liker:user_id (id, name, username, avatar)
+            liker:user_id(id, name, username, avatar)
           `)
           .in('post_id', postIds)
           .neq('user_id', user.id) // Don't include self-likes
@@ -84,9 +84,9 @@ export function Notifications() {
           created_at: like.created_at,
           sender: {
             id: like.liker.id,
-            name: like.liker.name,
-            username: like.liker.username,
-            avatar: like.liker.avatar,
+            name: like.liker.name || 'User',
+            username: like.liker.username || 'guest',
+            avatar: like.liker.avatar || ''
           },
           reference_id: like.post_id
         })) || [];
@@ -101,7 +101,7 @@ export function Notifications() {
             id,
             created_at,
             post_id,
-            commenter:user_id (id, name, username, avatar)
+            commenter:user_id(id, name, username, avatar)
           `)
           .in('post_id', postIds)
           .neq('user_id', user.id) // Don't include self-comments
@@ -118,30 +118,35 @@ export function Notifications() {
           created_at: comment.created_at,
           sender: {
             id: comment.commenter.id,
-            name: comment.commenter.name,
-            username: comment.commenter.username,
-            avatar: comment.commenter.avatar,
+            name: comment.commenter.name || 'User',
+            username: comment.commenter.username || 'guest',
+            avatar: comment.commenter.avatar || ''
           },
           reference_id: comment.post_id
         })) || [];
       }
 
-      // Format all notifications
-      const formattedNotifications = [
-        ...(friendRequests?.map(request => ({
+      // Format friend requests
+      const formattedFriendRequests = friendRequests?.map(request => {
+        return {
           id: request.id,
           type: 'friend_request' as const,
           content: 'sent you a friend request',
           read: false,
           created_at: request.created_at,
           sender: {
-            id: request.sender.id,
-            name: request.sender.name,
-            username: request.sender.username,
-            avatar: request.sender.avatar,
+            id: request.sender?.id || 'unknown',
+            name: request.sender?.name || 'User',
+            username: request.sender?.username || 'guest',
+            avatar: request.sender?.avatar || ''
           },
           reference_id: request.id
-        })) || []),
+        };
+      }) || [];
+
+      // Combine all notifications
+      const formattedNotifications = [
+        ...formattedFriendRequests,
         ...likeNotifications,
         ...commentNotifications
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -232,7 +237,7 @@ export function Notifications() {
 
   return (
     <DashboardLayout>
-      <Card>
+      <Card className="bg-gradient-to-br from-background to-secondary/5">
         <CardHeader>
           <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
             <Bell className="h-6 w-6" /> Notifications
@@ -258,25 +263,31 @@ export function Notifications() {
             notifications.map(notification => (
               <div 
                 key={notification.id} 
-                className={`flex items-start p-3 rounded-lg border ${!notification.read ? 'bg-muted/30' : ''}`}
+                className={`flex items-start p-4 rounded-lg border ${!notification.read ? 'bg-muted/30' : ''} hover:bg-muted/20 transition-colors`}
               >
                 <Avatar className="mr-3 mt-1">
-                  <AvatarImage src={notification.sender.avatar} alt={notification.sender.name} />
-                  <AvatarFallback>{notification.sender.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  {notification.sender.avatar ? (
+                    <AvatarImage src={notification.sender.avatar} alt={notification.sender.name} />
+                  ) : (
+                    <AvatarFallback className="bg-primary/20 text-primary">
+                      {notification.sender.name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <p className="font-medium">
                       <span className="font-medium">{notification.sender.name}</span>
                       {' '}{notification.content}
                     </p>
-                    <span className="text-xs text-muted-foreground" title={format(new Date(notification.created_at), 'PPpp')}>
+                    <span className="text-xs text-muted-foreground mt-1 sm:mt-0" title={format(new Date(notification.created_at), 'PPpp')}>
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">@{notification.sender.username}</p>
                   {notification.type === 'friend_request' && (
-                    <div className="flex gap-2 mt-2">
-                      <Button size="sm" variant="default" className="bg-social-blue hover:bg-social-blue/90" onClick={() => handleAcceptFriend(notification.reference_id!)}>
+                    <div className="flex gap-2 mt-3">
+                      <Button size="sm" className="bg-social-blue hover:bg-social-blue/90 text-white" onClick={() => handleAcceptFriend(notification.reference_id!)}>
                         Accept
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDeclineFriend(notification.reference_id!)}>
@@ -297,8 +308,10 @@ export function Notifications() {
               </div>
             ))
           ) : (
-            <div className="py-10 text-center">
+            <div className="py-10 text-center rounded-lg border border-dashed">
+              <Bell className="w-12 h-12 text-muted-foreground opacity-40 mx-auto mb-4" />
               <p className="text-muted-foreground">You don't have any notifications yet.</p>
+              <p className="text-sm mt-2">Activity related to your account will appear here.</p>
             </div>
           )}
         </CardContent>

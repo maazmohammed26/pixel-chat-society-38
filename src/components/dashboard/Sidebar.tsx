@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -54,7 +54,7 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   
-  React.useEffect(() => {
+  useEffect(() => {
     async function getUserProfile() {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -112,8 +112,13 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 flex items-center gap-3">
         <Avatar>
-          <AvatarImage src={user?.avatar} alt={user?.name} />
-          <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || 'GU'}</AvatarFallback>
+          {user?.avatar ? (
+            <AvatarImage src={user.avatar} alt={user?.name} />
+          ) : (
+            <AvatarFallback className="bg-primary/20 text-primary">
+              {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
+            </AvatarFallback>
+          )}
         </Avatar>
         <div className="flex-1">
           <h3 className="font-medium">{user?.name || 'Guest'}</h3>
@@ -157,16 +162,18 @@ export function Sidebar() {
   
   if (isMobile) {
     return (
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="fixed top-4 left-4 z-50">
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0">
-          <SidebarContent onLinkClick={() => document.body.click()} />
-        </SheetContent>
-      </Sheet>
+      <>
+        <Button variant="outline" size="icon" className="fixed top-4 left-4 z-50 lg:hidden bg-background border-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Menu className="h-5 w-5" />
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64">
+              <SidebarContent onLinkClick={() => document.body.click()} />
+            </SheetContent>
+          </Sheet>
+        </Button>
+      </>
     );
   }
   

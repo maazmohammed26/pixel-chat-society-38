@@ -59,18 +59,18 @@ export function Messages() {
       if (userProfile) {
         setCurrentUser({
           id: user.id,
-          name: userProfile.name,
-          avatar: userProfile.avatar
+          name: userProfile.name || 'User',
+          avatar: userProfile.avatar || ''
         });
       }
 
-      // Get accepted friends - using specific column hinting to avoid ambiguity
+      // Get accepted friends with explicit field selection
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
-          sender:sender_id (id, name, username, avatar),
-          receiver:receiver_id (id, name, username, avatar)
+          sender_profile:sender_id(id, name, username, avatar),
+          receiver_profile:receiver_id(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -78,16 +78,20 @@ export function Messages() {
       if (error) throw error;
 
       // Format friends data
-      const formattedFriends = friendsData.map(friend => {
-        const isSender = friend.sender.id !== user.id;
-        const friendProfile = isSender ? friend.sender : friend.receiver;
+      const formattedFriends: Friend[] = [];
+      
+      friendsData?.forEach(friend => {
+        const isSender = friend.sender_profile.id === user.id;
+        const friendProfile = isSender ? friend.receiver_profile : friend.sender_profile;
         
-        return {
-          id: friendProfile.id,
-          name: friendProfile.name,
-          username: friendProfile.username,
-          avatar: friendProfile.avatar
-        };
+        if (friendProfile && friendProfile.id) {
+          formattedFriends.push({
+            id: friendProfile.id,
+            name: friendProfile.name || 'User',
+            username: friendProfile.username || 'guest',
+            avatar: friendProfile.avatar || ''
+          });
+        }
       });
 
       setFriends(formattedFriends);
@@ -122,14 +126,26 @@ export function Messages() {
           receiver_id,
           content,
           created_at,
-          sender:sender_id (name, avatar)
+          sender_profile:sender_id(name, avatar)
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
         .order('created_at');
         
       if (error) throw error;
 
-      setMessages(messagesData);
+      const formattedMessages: Message[] = messagesData.map((message: any) => ({
+        id: message.id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        content: message.content,
+        created_at: message.created_at,
+        sender: {
+          name: message.sender_profile?.name || 'Unknown',
+          avatar: message.sender_profile?.avatar || ''
+        }
+      }));
+
+      setMessages(formattedMessages);
       scrollToBottom();
       
       // Mark received messages as read
@@ -206,7 +222,7 @@ export function Messages() {
       .channel('messages-changes')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'messages' }, 
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as Message;
           
           if (
@@ -215,35 +231,48 @@ export function Messages() {
              (newMessage.sender_id === currentUser?.id && newMessage.receiver_id === selectedFriend.id))
           ) {
             // Fetch the sender details for the new message
-            supabase
+            const { data } = await supabase
               .from('profiles')
               .select('name, avatar')
               .eq('id', newMessage.sender_id)
-              .single()
-              .then(({ data }) => {
-                if (data) {
-                  setMessages(prevMessages => [...prevMessages, {
-                    ...newMessage,
-                    sender: {
-                      name: data.name,
-                      avatar: data.avatar
-                    }
-                  }]);
-                  scrollToBottom();
-                  
-                  // Mark message as read if we're the receiver
-                  if (newMessage.receiver_id === currentUser?.id) {
-                    supabase
-                      .from('messages')
-                      .update({ read: true })
-                      .eq('id', newMessage.id);
-                  }
+              .single();
+              
+            if (data) {
+              setMessages(prevMessages => [...prevMessages, {
+                ...newMessage,
+                sender: {
+                  name: data.name || 'Unknown',
+                  avatar: data.avatar || ''
                 }
-              });
+              }]);
+              scrollToBottom();
+              
+              // Mark message as read if we're the receiver
+              if (newMessage.receiver_id === currentUser?.id) {
+                await supabase
+                  .from('messages')
+                  .update({ read: true })
+                  .eq('id', newMessage.id);
+              }
+            }
           } else if (newMessage.receiver_id === currentUser?.id) {
             // If we received a message from someone else, refresh friends list
             // to update unread counts
             fetchFriends();
+            
+            // Show notification
+            const { data: senderData } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', newMessage.sender_id)
+              .single();
+              
+            if (senderData) {
+              toast({
+                title: `New message from ${senderData.name}`,
+                description: newMessage.content.substring(0, 50) + (newMessage.content.length > 50 ? '...' : ''),
+              });
+            }
           }
         }
       )
@@ -269,8 +298,8 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <Card className="h-[calc(100vh-180px)] flex flex-col">
-        <CardHeader>
+      <Card className="h-[calc(100vh-180px)] flex flex-col bg-gradient-to-br from-background to-secondary/5">
+        <CardHeader className="pb-2">
           <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
             <MessageSquare className="h-6 w-6" /> Messages
           </CardTitle>
@@ -305,20 +334,28 @@ export function Messages() {
                     onClick={() => setSelectedFriend(friend)}
                   >
                     <Avatar>
-                      <AvatarImage src={friend.avatar} />
-                      <AvatarFallback>{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      {friend.avatar ? (
+                        <AvatarImage src={friend.avatar} />
+                      ) : (
+                        <AvatarFallback className="bg-primary/20 text-primary">
+                          {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     <div>
-                      <p className="font-medium">{friend.name}</p>
-                      <p className="text-xs text-muted-foreground">@{friend.username}</p>
+                      <p className="font-medium">{friend.name || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">@{friend.username || 'guest'}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No friends yet</p>
+                <p className="text-muted-foreground mb-4">No friends yet</p>
                 <p className="text-sm mt-1">Add friends to start chatting</p>
+                <Button variant="outline" className="mt-4" asChild>
+                  <a href="/friends">Find Friends</a>
+                </Button>
               </div>
             )}
           </div>
@@ -330,12 +367,17 @@ export function Messages() {
                 {/* Chat header */}
                 <div className="p-4 border-b flex items-center gap-3">
                   <Avatar>
-                    <AvatarImage src={selectedFriend.avatar} />
-                    <AvatarFallback>{selectedFriend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    {selectedFriend.avatar ? (
+                      <AvatarImage src={selectedFriend.avatar} />
+                    ) : (
+                      <AvatarFallback className="bg-primary/20 text-primary">
+                        {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <div>
-                    <p className="font-medium">{selectedFriend.name}</p>
-                    <p className="text-xs text-muted-foreground">@{selectedFriend.username}</p>
+                    <p className="font-medium">{selectedFriend.name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">@{selectedFriend.username || 'guest'}</p>
                   </div>
                 </div>
                 
@@ -350,8 +392,13 @@ export function Messages() {
                         >
                           <div className={`flex gap-2 max-w-[80%] ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}>
                             <Avatar className="h-8 w-8">
-                              <AvatarImage src={message.sender?.avatar} />
-                              <AvatarFallback>{message.sender?.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                              {message.sender?.avatar ? (
+                                <AvatarImage src={message.sender.avatar} />
+                              ) : (
+                                <AvatarFallback className="bg-primary/20 text-primary">
+                                  {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                                </AvatarFallback>
+                              )}
                             </Avatar>
                             <div className={`rounded-lg p-3 ${message.sender_id === currentUser?.id ? 'bg-social-blue text-white' : 'bg-muted'}`}>
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -383,7 +430,7 @@ export function Messages() {
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="self-end"
+                      className="self-end bg-social-blue hover:bg-social-blue/90 text-white"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >
