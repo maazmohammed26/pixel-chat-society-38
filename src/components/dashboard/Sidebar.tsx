@@ -9,14 +9,11 @@ import {
   Settings, 
   LogOut,
   User,
-  Menu,
-  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { UserSearch } from './UserSearch';
 import { logoutUser } from '@/utils/authUtils';
@@ -35,7 +32,7 @@ function SidebarLink({ to, icon, label, isActive, onClick }: SidebarLinkProps) {
       <Button
         variant={isActive ? 'secondary' : 'ghost'}
         className={`w-full justify-start mb-1 ${
-          isActive ? 'bg-primary/10 text-primary' : ''
+          isActive ? 'bg-accent/20 text-accent' : ''
         }`}
       >
         {icon}
@@ -115,7 +112,7 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
           {user?.avatar ? (
             <AvatarImage src={user.avatar} alt={user?.name} />
           ) : (
-            <AvatarFallback className="bg-primary/20 text-primary">
+            <AvatarFallback className="bg-social-dark-green text-primary-foreground">
               {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
             </AvatarFallback>
           )}
@@ -160,21 +157,9 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
 export function Sidebar() {
   const isMobile = useIsMobile();
   
+  // We'll only show sidebar on desktop as we now use MobileHeader on mobile
   if (isMobile) {
-    return (
-      <>
-        <Button variant="outline" size="icon" className="fixed top-4 left-4 z-50 lg:hidden bg-background border-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Menu className="h-5 w-5" />
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <SidebarContent onLinkClick={() => document.body.click()} />
-            </SheetContent>
-          </Sheet>
-        </Button>
-      </>
-    );
+    return null;
   }
   
   return (

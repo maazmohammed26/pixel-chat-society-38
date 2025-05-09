@@ -64,25 +64,27 @@ export function Messages() {
         });
       }
 
-      // Get accepted friends with explicit field selection
+      // Get accepted friends with explicit field selection and proper naming
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
-          sender_profile:sender_id(id, name, username, avatar),
-          receiver_profile:receiver_id(id, name, username, avatar)
+          sender_id, receiver_id,
+          sender:sender_id(id, name, username, avatar),
+          receiver:receiver_id(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
         
       if (error) throw error;
-
+      
       // Format friends data
       const formattedFriends: Friend[] = [];
       
       friendsData?.forEach(friend => {
-        const isSender = friend.sender_profile.id === user.id;
-        const friendProfile = isSender ? friend.receiver_profile : friend.sender_profile;
+        // Determine if the current user is the sender or receiver
+        const isSender = friend.sender_id === user.id;
+        const friendProfile = isSender ? friend.receiver : friend.sender;
         
         if (friendProfile && friendProfile.id) {
           formattedFriends.push({
@@ -126,7 +128,7 @@ export function Messages() {
           receiver_id,
           content,
           created_at,
-          sender_profile:sender_id(name, avatar)
+          sender:sender_id(name, avatar)
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
         .order('created_at');
@@ -140,8 +142,8 @@ export function Messages() {
         content: message.content,
         created_at: message.created_at,
         sender: {
-          name: message.sender_profile?.name || 'Unknown',
-          avatar: message.sender_profile?.avatar || ''
+          name: message.sender?.name || 'Unknown',
+          avatar: message.sender?.avatar || ''
         }
       }));
 
@@ -298,7 +300,7 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <Card className="h-[calc(100vh-180px)] flex flex-col bg-gradient-to-br from-background to-secondary/5">
+      <Card className="h-[calc(100vh-180px)] flex flex-col card-gradient">
         <CardHeader className="pb-2">
           <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
             <MessageSquare className="h-6 w-6" /> Messages
@@ -309,7 +311,7 @@ export function Messages() {
         </CardHeader>
         <CardContent className="flex-1 flex gap-4 overflow-hidden p-0">
           {/* Friends list */}
-          <div className="w-1/4 border-r p-4 overflow-y-auto">
+          <div className="w-1/3 md:w-1/4 border-r p-4 overflow-y-auto">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <User className="h-4 w-4" /> Contacts
             </h3>
@@ -330,14 +332,18 @@ export function Messages() {
                 {friends.map(friend => (
                   <div
                     key={friend.id}
-                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors ${selectedFriend?.id === friend.id ? 'bg-muted' : ''}`}
+                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                      selectedFriend?.id === friend.id 
+                        ? 'bg-accent/20 text-accent' 
+                        : 'hover:bg-muted/50'
+                    }`}
                     onClick={() => setSelectedFriend(friend)}
                   >
                     <Avatar>
                       {friend.avatar ? (
                         <AvatarImage src={friend.avatar} />
                       ) : (
-                        <AvatarFallback className="bg-primary/20 text-primary">
+                        <AvatarFallback className="bg-social-dark-green text-primary-foreground">
                           {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
                         </AvatarFallback>
                       )}
@@ -370,7 +376,7 @@ export function Messages() {
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-primary/20 text-primary">
+                      <AvatarFallback className="bg-social-dark-green text-primary-foreground">
                         {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     )}
@@ -382,25 +388,25 @@ export function Messages() {
                 </div>
                 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
                   {messages.length > 0 ? (
                     <div className="space-y-4">
                       {messages.map((message) => (
                         <div 
                           key={message.id}
-                          className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                          className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
                         >
                           <div className={`flex gap-2 max-w-[80%] ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}>
                             <Avatar className="h-8 w-8">
                               {message.sender?.avatar ? (
                                 <AvatarImage src={message.sender.avatar} />
                               ) : (
-                                <AvatarFallback className="bg-primary/20 text-primary">
+                                <AvatarFallback className="bg-social-dark-green text-primary-foreground">
                                   {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
                                 </AvatarFallback>
                               )}
                             </Avatar>
-                            <div className={`rounded-lg p-3 ${message.sender_id === currentUser?.id ? 'bg-social-blue text-white' : 'bg-muted'}`}>
+                            <div className={message.sender_id === currentUser?.id ? 'message-bubble-sent' : 'message-bubble-received'}>
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
                               <p className="text-xs opacity-70 mt-1">
                                 {format(new Date(message.created_at), 'HH:mm')}
@@ -423,14 +429,14 @@ export function Messages() {
                   <div className="flex gap-2">
                     <Textarea 
                       placeholder="Type a message..." 
-                      className="flex-1 min-h-[60px] max-h-[120px]"
+                      className="flex-1 min-h-[60px] max-h-[120px] focus:ring-social-dark-green"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="self-end bg-social-blue hover:bg-social-blue/90 text-white"
+                      className="self-end bg-social-dark-green hover:bg-social-forest-green text-white"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >

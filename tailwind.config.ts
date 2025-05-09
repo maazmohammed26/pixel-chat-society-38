@@ -68,7 +68,10 @@ export default {
           'deep-purple': '#7E69AB',
           'light-purple': '#D6BCFA',
           green: '#25D366',
+          'dark-green': '#0F4C3A',
+          'forest-green': '#1B4332',
           'light-green': '#DCF8C6',
+          'mint-green': '#D1FAE5',
           magenta: '#D946EF',
           orange: '#F97316',
           blue: '#0EA5E9',
@@ -123,6 +126,14 @@ export default {
           '100%': { 
             transform: 'translateX(0)' 
           }
+        },
+        'pulse-green': {
+          '0%, 100%': { 
+            backgroundColor: 'rgba(15, 76, 58, 0.1)' 
+          },
+          '50%': { 
+            backgroundColor: 'rgba(15, 76, 58, 0.2)' 
+          },
         }
 			},
 			animation: {
@@ -131,6 +142,7 @@ export default {
         'fade-in': 'fade-in 0.3s ease-out',
         'scale-in': 'scale-in 0.2s ease-out',
         'slide-in': 'slide-in 0.3s ease-out',
+        'pulse-green': 'pulse-green 2s infinite',
 			},
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

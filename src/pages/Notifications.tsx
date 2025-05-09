@@ -237,7 +237,7 @@ export function Notifications() {
 
   return (
     <DashboardLayout>
-      <Card className="bg-gradient-to-br from-background to-secondary/5">
+      <Card className="card-gradient">
         <CardHeader>
           <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
             <Bell className="h-6 w-6" /> Notifications
@@ -250,7 +250,7 @@ export function Notifications() {
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-start p-3 rounded-lg border animate-pulse">
+                <div key={i} className="flex items-start p-3 rounded-lg border animate-pulse-green">
                   <div className="h-10 w-10 rounded-full bg-muted mr-3"></div>
                   <div className="flex-1">
                     <div className="h-5 bg-muted rounded w-3/4 mb-2"></div>
@@ -263,13 +263,13 @@ export function Notifications() {
             notifications.map(notification => (
               <div 
                 key={notification.id} 
-                className={`flex items-start p-4 rounded-lg border ${!notification.read ? 'bg-muted/30' : ''} hover:bg-muted/20 transition-colors`}
+                className={`flex items-start p-4 rounded-lg border animate-fade-in ${!notification.read ? 'bg-accent/5' : ''} hover:bg-accent/10 transition-colors`}
               >
                 <Avatar className="mr-3 mt-1">
                   {notification.sender.avatar ? (
                     <AvatarImage src={notification.sender.avatar} alt={notification.sender.name} />
                   ) : (
-                    <AvatarFallback className="bg-primary/20 text-primary">
+                    <AvatarFallback className="bg-social-dark-green text-primary-foreground">
                       {notification.sender.name.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   )}
@@ -287,7 +287,7 @@ export function Notifications() {
                   <p className="text-xs text-muted-foreground mt-1">@{notification.sender.username}</p>
                   {notification.type === 'friend_request' && (
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" className="bg-social-blue hover:bg-social-blue/90 text-white" onClick={() => handleAcceptFriend(notification.reference_id!)}>
+                      <Button size="sm" className="bg-social-dark-green hover:bg-social-forest-green text-white" onClick={() => handleAcceptFriend(notification.reference_id!)}>
                         Accept
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDeclineFriend(notification.reference_id!)}>
@@ -297,7 +297,7 @@ export function Notifications() {
                   )}
                 </div>
                 {notification.type === 'friend_request' && (
-                  <UserPlus className="h-4 w-4 text-social-blue ml-2 mt-1 flex-shrink-0" />
+                  <UserPlus className="h-4 w-4 text-social-dark-green ml-2 mt-1 flex-shrink-0" />
                 )}
                 {notification.type === 'like' && (
                   <Heart className="h-4 w-4 text-social-magenta ml-2 mt-1 flex-shrink-0" />

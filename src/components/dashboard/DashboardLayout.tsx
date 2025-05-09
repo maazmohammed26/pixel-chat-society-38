@@ -1,6 +1,7 @@
 
 import React from 'react';
-import Sidebar from './Sidebar';
+import { Sidebar } from './Sidebar';
+import { MobileHeader } from './MobileHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DashboardLayoutProps {
@@ -11,15 +12,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-background flex">
       <Sidebar />
-      <main className={`flex-1 ${isMobile ? 'px-4 pt-16 pb-6' : 'p-6'}`}>
-        <div className="max-w-5xl mx-auto">
+      <div className="flex-1">
+        {isMobile && <MobileHeader />}
+        <main className={`p-6 ${isMobile ? 'mt-28' : ''}`}>
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
-
-export default DashboardLayout;

@@ -7,83 +7,83 @@
 
 @layer base {
   :root {
-    --background: 250 100% 98%;
-    --foreground: 240 10% 3.9%;
+    --background: 140 20% 97%;
+    --foreground: 140 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 140 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 140 10% 10%;
 
-    --primary: 255 80% 75%;
+    --primary: 140 60% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary: 140 15% 94%;
+    --secondary-foreground: 140 20% 20%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 140 10% 94%;
+    --muted-foreground: 140 10% 45%;
 
-    --accent: 273 100% 60%;
+    --accent: 142 70% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 255 80% 75%;
+    --border: 140 15% 90%;
+    --input: 140 15% 90%;
+    --ring: 140 60% 35%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 255 80% 75%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 255 80% 75%;
+    --sidebar-background: 140 20% 97%;
+    --sidebar-foreground: 140 10% 25%;
+    --sidebar-primary: 140 60% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 140 15% 92%;
+    --sidebar-accent-foreground: 140 20% 20%;
+    --sidebar-border: 140 15% 90%;
+    --sidebar-ring: 140 60% 35%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 140 30% 10%;
+    --foreground: 140 10% 90%;
 
-    --card: 240 10% 7%;
-    --card-foreground: 0 0% 98%;
+    --card: 140 30% 12%;
+    --card-foreground: 140 10% 90%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 140 30% 10%;
+    --popover-foreground: 140 10% 90%;
 
-    --primary: 255 80% 75%;
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 140 60% 40%;
+    --primary-foreground: 140 10% 10%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 140 15% 18%;
+    --secondary-foreground: 140 10% 90%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 140 15% 18%;
+    --muted-foreground: 140 10% 65%;
 
-    --accent: 273 100% 60%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 142 70% 30%;
+    --accent-foreground: 140 10% 90%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 140 10% 90%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 255 80% 75%;
+    --border: 140 15% 18%;
+    --input: 140 15% 18%;
+    --ring: 140 60% 40%;
 
-    --sidebar-background: 240 10% 7%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 255 80% 75%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 255 80% 75%;
+    --sidebar-background: 140 30% 12%;
+    --sidebar-foreground: 140 10% 90%;
+    --sidebar-primary: 140 60% 40%;
+    --sidebar-primary-foreground: 140 10% 10%;
+    --sidebar-accent: 140 15% 18%;
+    --sidebar-accent-foreground: 140 10% 90%;
+    --sidebar-border: 140 15% 18%;
+    --sidebar-ring: 140 60% 40%;
   }
 }
 
@@ -105,11 +105,23 @@
   }
 
   .social-gradient {
-    @apply bg-gradient-to-r from-social-purple to-social-blue;
+    @apply bg-gradient-to-r from-social-forest-green to-social-dark-green;
   }
 
   .btn-gradient {
-    @apply bg-gradient-to-r from-social-purple to-social-magenta text-white font-medium;
+    @apply bg-gradient-to-r from-social-forest-green to-social-dark-green text-white font-medium;
+  }
+  
+  .message-bubble-sent {
+    @apply bg-social-dark-green text-white rounded-lg p-3;
+  }
+  
+  .message-bubble-received {
+    @apply bg-muted rounded-lg p-3;
+  }
+  
+  .card-gradient {
+    @apply bg-gradient-to-br from-background to-secondary/5 hover:from-background/90 hover:to-secondary/10 transition-colors duration-300;
   }
 }
 
