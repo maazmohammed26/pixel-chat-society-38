@@ -3,10 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Check, X, MessageSquare } from 'lucide-react';
+import { UserPlus, Check, X, MessageSquare, UserCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { UserSearch } from './UserSearch';
 
 interface FriendProps {
   id: string;
@@ -64,6 +65,7 @@ export function FriendCard({ friend, onAction }: {
       toast({
         title: 'Friend request sent',
         description: `You've sent a request to ${friend.name}`,
+        className: 'bg-social-dark-green text-white',
       });
       
       if (onAction) onAction();
@@ -94,6 +96,7 @@ export function FriendCard({ friend, onAction }: {
       toast({
         title: 'Friend request accepted',
         description: `${friend.name} is now your friend!`,
+        className: 'bg-social-dark-green text-white',
       });
       
       if (onAction) onAction();
@@ -145,6 +148,7 @@ export function FriendCard({ friend, onAction }: {
     toast({
       title: 'Opening chat',
       description: `Starting conversation with ${friend.name}`,
+      className: 'bg-social-dark-green text-white',
     });
   };
 
@@ -153,7 +157,7 @@ export function FriendCard({ friend, onAction }: {
       <div className="flex items-center gap-3">
         <Avatar>
           <AvatarImage src={friend.avatar} alt={friend.name} />
-          <AvatarFallback>{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          <AvatarFallback className="bg-social-dark-green text-white">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
           <p className="font-medium">{friend.name}</p>
@@ -166,7 +170,7 @@ export function FriendCard({ friend, onAction }: {
             size="sm" 
             variant="outline" 
             onClick={handleAddFriend} 
-            className="hover-scale"
+            className="hover-scale bg-social-dark-green hover:bg-social-forest-green text-white"
             disabled={isLoading}
           >
             <UserPlus className="h-4 w-4 mr-2" />
@@ -178,8 +182,8 @@ export function FriendCard({ friend, onAction }: {
             <Button 
               size="sm" 
               onClick={handleAccept} 
-              variant="outline" 
-              className="hover-scale"
+              variant="default" 
+              className="hover-scale bg-social-dark-green hover:bg-social-forest-green text-white"
               disabled={isLoading}
             >
               <Check className="h-4 w-4" />
@@ -199,7 +203,7 @@ export function FriendCard({ friend, onAction }: {
           <Button 
             size="sm" 
             onClick={handleChat} 
-            className="hover-scale"
+            className="hover-scale bg-social-dark-green hover:bg-social-forest-green text-white"
             disabled={isLoading}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
@@ -216,6 +220,7 @@ export function FriendCard({ friend, onAction }: {
 
 export function FriendList() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendProps[]>([]);
   const [requests, setRequests] = useState<FriendProps[]>([]);
   const [suggested, setSuggested] = useState<FriendProps[]>([]);
@@ -225,27 +230,43 @@ export function FriendList() {
   const fetchFriendData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) return;
+      if (!user) {
+        setError("You must be logged in to view friends");
+        setLoading(false);
+        return;
+      }
+      
+      console.log("Fetching friends data for user:", user.id);
       
       // Get accepted friends
-      const { data: friendsData } = await supabase
+      const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
         .select(`
           id,
+          sender_id,
+          receiver_id,
           profiles!friends_sender_id_fkey (id, name, username, avatar),
           profiles!friends_receiver_id_fkey (id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
+      
+      if (friendsError) {
+        console.error("Error fetching friends:", friendsError);
+        setError("Failed to load friend data. Please try again.");
+        return;
+      }
         
       // Format friends data
       const formattedFriends = friendsData?.map(friend => {
-        const isSender = friend.profiles["friends_sender_id_fkey"].id !== user.id;
-        const friendProfile = isSender ? 
-          friend.profiles["friends_sender_id_fkey"] : 
-          friend.profiles["friends_receiver_id_fkey"];
+        const isSender = friend.sender_id === user.id;
+        const friendProfile = isSender 
+          ? friend.profiles.friends_receiver_id_fkey
+          : friend.profiles.friends_sender_id_fkey;
         
         return {
           id: friendProfile.id,
@@ -257,45 +278,61 @@ export function FriendList() {
         };
       }) || [];
       
+      console.log("Formatted friends:", formattedFriends);
+      
       // Get friend requests (where user is receiver)
-      const { data: requestsData } = await supabase
+      const { data: requestsData, error: requestsError } = await supabase
         .from('friends')
         .select(`
           id,
+          sender_id,
           profiles!friends_sender_id_fkey (id, name, username, avatar)
         `)
         .eq('receiver_id', user.id)
         .eq('status', 'pending');
+      
+      if (requestsError) {
+        console.error("Error fetching requests:", requestsError);
+      }
         
       // Format requests data
       const formattedRequests = requestsData?.map(request => ({
-        id: request.profiles["friends_sender_id_fkey"].id,
-        name: request.profiles["friends_sender_id_fkey"].name,
-        username: request.profiles["friends_sender_id_fkey"].username,
-        avatar: request.profiles["friends_sender_id_fkey"].avatar,
+        id: request.profiles.friends_sender_id_fkey.id,
+        name: request.profiles.friends_sender_id_fkey.name,
+        username: request.profiles.friends_sender_id_fkey.username,
+        avatar: request.profiles.friends_sender_id_fkey.avatar,
         status: 'request' as const,
         relationship_id: request.id
       })) || [];
       
+      console.log("Formatted requests:", formattedRequests);
+      
       // Get pending requests (where user is sender)
-      const { data: pendingData } = await supabase
+      const { data: pendingData, error: pendingError } = await supabase
         .from('friends')
         .select(`
           id,
+          receiver_id,
           profiles!friends_receiver_id_fkey (id, name, username, avatar)
         `)
         .eq('sender_id', user.id)
         .eq('status', 'pending');
+      
+      if (pendingError) {
+        console.error("Error fetching pending requests:", pendingError);
+      }
         
       // Format pending data
       const formattedPending = pendingData?.map(pending => ({
-        id: pending.profiles["friends_receiver_id_fkey"].id,
-        name: pending.profiles["friends_receiver_id_fkey"].name,
-        username: pending.profiles["friends_receiver_id_fkey"].username,
-        avatar: pending.profiles["friends_receiver_id_fkey"].avatar,
+        id: pending.profiles.friends_receiver_id_fkey.id,
+        name: pending.profiles.friends_receiver_id_fkey.name,
+        username: pending.profiles.friends_receiver_id_fkey.username,
+        avatar: pending.profiles.friends_receiver_id_fkey.avatar,
         status: 'pending' as const,
         relationship_id: pending.id
       })) || [];
+      
+      console.log("Formatted pending:", formattedPending);
       
       // Get all user IDs to exclude from suggestions
       const allUserIds = [
@@ -303,14 +340,26 @@ export function FriendList() {
         ...formattedFriends.map(f => f.id),
         ...formattedRequests.map(r => r.id),
         ...formattedPending.map(p => p.id)
-      ];
+      ].filter(Boolean);
+      
+      console.log("Excluding user IDs from suggestions:", allUserIds);
       
       // Get suggested friends (other users not in any relationship with current user)
-      const { data: suggestedData } = await supabase
+      let suggestedQuery = supabase
         .from('profiles')
-        .select('id, name, username, avatar')
-        .not('id', 'in', `(${allUserIds.join(',')})`)
-        .limit(5);
+        .select('id, name, username, avatar');
+      
+      if (allUserIds.length > 0) {
+        suggestedQuery = suggestedQuery.not('id', 'in', `(${allUserIds.join(',')})`);
+      } else {
+        suggestedQuery = suggestedQuery.neq('id', user.id);
+      }
+      
+      const { data: suggestedData, error: suggestedError } = await suggestedQuery.limit(5);
+      
+      if (suggestedError) {
+        console.error("Error fetching suggestions:", suggestedError);
+      }
         
       // Format suggested data
       const formattedSuggested = suggestedData?.map(profile => ({
@@ -321,12 +370,15 @@ export function FriendList() {
         status: 'none' as const
       })) || [];
       
+      console.log("Formatted suggestions:", formattedSuggested);
+      
       setFriends(formattedFriends);
       setRequests(formattedRequests);
       setPending(formattedPending);
       setSuggested(formattedSuggested);
     } catch (error) {
       console.error('Error fetching friend data:', error);
+      setError("Failed to load friend data. Please try again.");
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -342,10 +394,11 @@ export function FriendList() {
     
     // Set up realtime subscriptions
     const friendsChannel = supabase
-      .channel('public:friends')
+      .channel('friends-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'friends' }, 
-        () => {
+        (payload) => {
+          console.log('Friends table changed:', payload);
           fetchFriendData();
         }
       )
@@ -383,8 +436,30 @@ export function FriendList() {
     );
   }
 
+  if (error) {
+    return (
+      <Card className="text-center p-6">
+        <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Unable to load friend data</h3>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button 
+          onClick={fetchFriendData}
+          className="bg-social-dark-green hover:bg-social-forest-green text-white"
+        >
+          Try Again
+        </Button>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <UserSearch />
+        </CardContent>
+      </Card>
+      
       {requests.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -404,7 +479,7 @@ export function FriendList() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Check className="h-5 w-5 text-social-green" />
+            <UserCheck className="h-5 w-5 text-social-green" />
             Your Friends
           </CardTitle>
         </CardHeader>
@@ -434,22 +509,18 @@ export function FriendList() {
         </Card>
       )}
       
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Suggested Friends</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {suggested.length > 0 ? (
-            suggested.map((friend) => (
+      {suggested.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Suggested Friends</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {suggested.map((friend) => (
               <FriendCard key={friend.id} friend={friend} onAction={fetchFriendData} />
-            ))
-          ) : (
-            <p className="text-center py-4 text-muted-foreground">
-              No suggestions available at this time.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

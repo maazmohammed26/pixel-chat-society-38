@@ -1,165 +1,140 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+ 
 @layer base {
   :root {
-    --background: 140 20% 97%;
-    --foreground: 140 10% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 140 10% 10%;
-
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
     --popover: 0 0% 100%;
-    --popover-foreground: 140 10% 10%;
-
-    --primary: 140 60% 35%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 140 15% 94%;
-    --secondary-foreground: 140 20% 20%;
-
-    --muted: 140 10% 94%;
-    --muted-foreground: 140 10% 45%;
-
-    --accent: 142 70% 45%;
-    --accent-foreground: 0 0% 100%;
-
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 140 15% 90%;
-    --input: 140 15% 90%;
-    --ring: 140 60% 35%;
-
-    --radius: 0.75rem;
-
-    --sidebar-background: 140 20% 97%;
-    --sidebar-foreground: 140 10% 25%;
-    --sidebar-primary: 140 60% 35%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 140 15% 92%;
-    --sidebar-accent-foreground: 140 20% 20%;
-    --sidebar-border: 140 15% 90%;
-    --sidebar-ring: 140 60% 35%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --ring: 215 20.2% 65.1%;
+ 
+    --radius: 0.5rem;
+    
+    --social-dark-green: 146 62% 25%;
+    --social-forest-green: 145 52% 20%;
+    --social-light-green: 146 56% 45%;
+    --social-magenta: 327 73% 37%;
+    --social-purple: 266 67% 39%;
+    --social-green: 142 76% 36%;
   }
-
+ 
   .dark {
-    --background: 140 30% 10%;
-    --foreground: 140 10% 90%;
-
-    --card: 140 30% 12%;
-    --card-foreground: 140 10% 90%;
-
-    --popover: 140 30% 10%;
-    --popover-foreground: 140 10% 90%;
-
-    --primary: 140 60% 40%;
-    --primary-foreground: 140 10% 10%;
-
-    --secondary: 140 15% 18%;
-    --secondary-foreground: 140 10% 90%;
-
-    --muted: 140 15% 18%;
-    --muted-foreground: 140 10% 65%;
-
-    --accent: 142 70% 30%;
-    --accent-foreground: 140 10% 90%;
-
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 140 10% 90%;
-
-    --border: 140 15% 18%;
-    --input: 140 15% 18%;
-    --ring: 140 60% 40%;
-
-    --sidebar-background: 140 30% 12%;
-    --sidebar-foreground: 140 10% 90%;
-    --sidebar-primary: 140 60% 40%;
-    --sidebar-primary-foreground: 140 10% 10%;
-    --sidebar-accent: 140 15% 18%;
-    --sidebar-accent-foreground: 140 10% 90%;
-    --sidebar-border: 140 15% 18%;
-    --sidebar-ring: 140 60% 40%;
+    --destructive-foreground: 0 85.7% 97.3%;
+ 
+    --ring: 217.2 32.6% 17.5%;
   }
 }
-
+ 
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground font-sans;
-  }
-
-  .glass-card {
-    @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-lg;
-  }
-
-  .hover-scale {
-    @apply transition-transform duration-200 hover:scale-105;
-  }
-
-  .social-gradient {
-    @apply bg-gradient-to-r from-social-forest-green to-social-dark-green;
-  }
-
-  .btn-gradient {
-    @apply bg-gradient-to-r from-social-forest-green to-social-dark-green text-white font-medium;
-  }
-  
-  .message-bubble-sent {
-    @apply bg-social-dark-green text-white rounded-lg p-3;
-  }
-  
-  .message-bubble-received {
-    @apply bg-muted rounded-lg p-3;
-  }
-  
-  .card-gradient {
-    @apply bg-gradient-to-br from-background to-secondary/5 hover:from-background/90 hover:to-secondary/10 transition-colors duration-300;
-  }
-
-  /* Improved tab navigation styles */
-  .nav-tabs {
-    @apply flex bg-muted rounded-full p-1;
-  }
-
-  .nav-tab {
-    @apply px-4 py-2 rounded-full transition-all duration-200 flex items-center gap-1;
-  }
-
-  .nav-tab.active {
-    @apply bg-social-dark-green text-white;
-  }
-
-  .nav-tab:not(.active) {
-    @apply text-muted-foreground hover:bg-muted/80;
-  }
-  
-  /* Animation utilities */
-  .animate-fade-in {
-    @apply animate-in fade-in duration-300;
-  }
-  
-  .animate-slide-up {
-    @apply animate-in slide-in-from-bottom duration-300;
-  }
-  
-  /* User card styles */
-  .user-card {
-    @apply border rounded-lg p-3 transition-all duration-200 hover:bg-muted/40;
-  }
-  
-  .user-card-active {
-    @apply border border-social-dark-green/30 bg-social-dark-green/5;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-#root {
-  @apply w-full min-h-screen;
+@layer components {
+  .social-gradient {
+    @apply bg-gradient-to-r from-social-dark-green via-social-forest-green to-social-light-green;
+  }
+  
+  .card-gradient {
+    @apply bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 shadow-sm;
+  }
+  
+  .nav-tabs {
+    @apply bg-gray-100/80 border rounded-lg h-9 p-1 w-full;
+  }
+  
+  .nav-tab {
+    @apply flex items-center justify-center h-7 rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-social-dark-green data-[state=active]:bg-social-dark-green data-[state=active]:text-white data-[state=active]:shadow-sm;
+  }
+  
+  .nav-tab.active {
+    @apply bg-social-dark-green text-white shadow;
+  }
+  
+  .btn-gradient {
+    @apply bg-social-dark-green hover:bg-social-forest-green text-white transition-colors;
+  }
+  
+  .hover-scale {
+    @apply transition transform hover:scale-105;
+  }
+  
+  .message-bubble-sent {
+    @apply bg-social-dark-green text-white rounded-2xl rounded-tr-none px-4 py-2 max-w-xs;
+  }
+  
+  .message-bubble-received {
+    @apply bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-tl-none px-4 py-2 max-w-xs;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }

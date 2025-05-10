@@ -22,6 +22,8 @@ interface UserProfile {
   name: string;
   username: string;
   avatar: string;
+  status?: 'pending' | 'request' | 'friend' | 'none';
+  relationshipId?: string | null;
 }
 
 export function UserSearch() {
@@ -87,7 +89,7 @@ export function UserSearch() {
       }
       
       // Prepare the results with relationship status
-      const resultsWithStatus = data?.map(user => {
+      const resultsWithStatus: UserProfile[] = data?.map(user => {
         // Check if there's an existing connection
         const connection = connections?.find(conn => 
           (conn.sender_id === currentUser.user?.id && conn.receiver_id === user.id) || 
@@ -110,7 +112,7 @@ export function UserSearch() {
         
         return {
           ...user,
-          status,
+          status: status as 'none' | 'friend' | 'pending' | 'request',
           relationshipId
         };
       }) || [];

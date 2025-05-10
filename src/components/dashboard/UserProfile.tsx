@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, AtSign, Camera, Edit2 } from 'lucide-react';
+import { User, Mail, AtSign, Camera, Edit2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserProfile, updateUserProfile } from '@/utils/authUtils';
@@ -14,6 +14,8 @@ import { getUserProfile, updateUserProfile } from '@/utils/authUtils';
 export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState({
     id: '',
     name: '',
@@ -90,6 +92,7 @@ export function UserProfile() {
       toast({
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
+        className: 'bg-social-dark-green text-white',
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -115,6 +118,69 @@ export function UserProfile() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleProfilePictureClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      setUploadingAvatar(true);
+      
+      // Generate a unique filename using UUID
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      
+      // Upload file to default Supabase storage bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL for the uploaded file
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      
+      const avatarUrl = publicUrlData.publicUrl;
+      
+      // Update the profile with the new avatar URL
+      await updateUserProfile(profile.id, {
+        avatar: avatarUrl,
+        updated_at: new Date()
+      });
+      
+      // Update local state
+      setProfile(prev => ({
+        ...prev,
+        avatar: avatarUrl
+      }));
+      
+      toast({
+        title: 'Avatar updated',
+        description: 'Your profile picture has been updated successfully.',
+        className: 'bg-social-dark-green text-white',
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: 'Failed to upload profile picture. Please try again.',
+      });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   if (loading) {
@@ -145,12 +211,36 @@ export function UserProfile() {
     <Card className="animate-fade-in">
       <CardHeader className="text-center pb-0">
         <div className="relative w-24 h-24 mx-auto mb-4">
-          <Avatar className="w-24 h-24 border-4 border-background">
-            <AvatarImage src={profile.avatar} alt={profile.name} />
-            <AvatarFallback className="text-2xl">{profile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          <Avatar className="w-24 h-24 border-4 border-background cursor-pointer" onClick={handleProfilePictureClick}>
+            {uploadingAvatar ? (
+              <div className="h-full w-full flex items-center justify-center bg-muted/20">
+                <Loader2 className="h-8 w-8 animate-spin text-social-dark-green" />
+              </div>
+            ) : (
+              <>
+                <AvatarImage src={profile.avatar} alt={profile.name} />
+                <AvatarFallback className="text-2xl bg-social-dark-green text-white">
+                  {profile.name.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </>
+            )}
           </Avatar>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            accept="image/*" 
+            className="hidden" 
+            disabled={uploadingAvatar}
+          />
           <div className="absolute bottom-0 right-0">
-            <Button size="icon" variant="secondary" className="rounded-full w-8 h-8">
+            <Button 
+              size="icon" 
+              variant="secondary" 
+              className="rounded-full w-8 h-8 bg-social-dark-green hover:bg-social-forest-green text-white"
+              onClick={handleProfilePictureClick}
+              disabled={uploadingAvatar}
+            >
               <Camera className="h-4 w-4" />
             </Button>
           </div>
@@ -160,7 +250,7 @@ export function UserProfile() {
           <div className="space-y-3 mt-4">
             <div>
               <Label htmlFor="name">Name</Label>
-              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring mt-1">
+              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-social-dark-green mt-1">
                 <User className="ml-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="name"
@@ -175,13 +265,13 @@ export function UserProfile() {
             
             <div>
               <Label htmlFor="bio">Bio</Label>
-              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring mt-1">
+              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-social-dark-green mt-1">
                 <Input 
                   id="bio"
                   name="bio"
                   placeholder="Tell us about yourself" 
                   className="border-0 bg-transparent focus-visible:ring-0" 
-                  value={profile.bio}
+                  value={profile.bio || ''}
                   onChange={handleChange}
                 />
               </div>
@@ -191,7 +281,10 @@ export function UserProfile() {
               <Button variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
-              <Button className="btn-gradient" onClick={handleSave}>
+              <Button 
+                className="bg-social-dark-green hover:bg-social-forest-green text-white" 
+                onClick={handleSave}
+              >
                 Save
               </Button>
             </div>
