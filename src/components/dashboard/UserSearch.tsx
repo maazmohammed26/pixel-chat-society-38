@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, UserPlus, Loader2, User } from 'lucide-react';
+import { Search, UserPlus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
@@ -75,6 +75,15 @@ export function UserSearch() {
         
       if (error) throw error;
       
+      if (!data || data.length === 0) {
+        toast({
+          title: "No users found",
+          description: `No users matching "${searchTerm}" were found.`,
+        });
+        setIsSearching(false);
+        return;
+      }
+      
       // Filter out existing friends or pending requests
       const { data: connections, error: connectionsError } = await supabase
         .from('friends')
@@ -89,7 +98,7 @@ export function UserSearch() {
       }
       
       // Prepare the results with relationship status
-      const resultsWithStatus: UserProfile[] = data?.map(user => {
+      const resultsWithStatus: UserProfile[] = data.map(user => {
         // Check if there's an existing connection
         const connection = connections?.find(conn => 
           (conn.sender_id === currentUser.user?.id && conn.receiver_id === user.id) || 
@@ -118,6 +127,14 @@ export function UserSearch() {
       }) || [];
       
       setResults(resultsWithStatus);
+      
+      if (resultsWithStatus.length > 0) {
+        toast({
+          title: "Search complete",
+          description: `Found ${resultsWithStatus.length} user${resultsWithStatus.length > 1 ? 's' : ''}.`,
+          className: 'bg-social-dark-green text-white',
+        });
+      }
     } catch (error) {
       console.error('Error searching users:', error);
       toast({

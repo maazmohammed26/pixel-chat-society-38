@@ -242,15 +242,15 @@ export function FriendList() {
       
       console.log("Fetching friends data for user:", user.id);
       
-      // Get accepted friends
+      // Get accepted friends - fixed query to avoid table name conflicts
       const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
         .select(`
           id,
           sender_id,
           receiver_id,
-          profiles!friends_sender_id_fkey (id, name, username, avatar),
-          profiles!friends_receiver_id_fkey (id, name, username, avatar)
+          sender_profile:profiles!sender_id(id, name, username, avatar),
+          receiver_profile:profiles!receiver_id(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -261,12 +261,12 @@ export function FriendList() {
         return;
       }
         
-      // Format friends data
+      // Format friends data with proper property access
       const formattedFriends = friendsData?.map(friend => {
         const isSender = friend.sender_id === user.id;
         const friendProfile = isSender 
-          ? friend.profiles.friends_receiver_id_fkey
-          : friend.profiles.friends_sender_id_fkey;
+          ? friend.receiver_profile
+          : friend.sender_profile;
         
         return {
           id: friendProfile.id,
@@ -280,13 +280,13 @@ export function FriendList() {
       
       console.log("Formatted friends:", formattedFriends);
       
-      // Get friend requests (where user is receiver)
+      // Get friend requests (where user is receiver) - fixed query
       const { data: requestsData, error: requestsError } = await supabase
         .from('friends')
         .select(`
           id,
           sender_id,
-          profiles!friends_sender_id_fkey (id, name, username, avatar)
+          sender_profile:profiles!sender_id(id, name, username, avatar)
         `)
         .eq('receiver_id', user.id)
         .eq('status', 'pending');
@@ -295,25 +295,25 @@ export function FriendList() {
         console.error("Error fetching requests:", requestsError);
       }
         
-      // Format requests data
+      // Format requests data with proper property access
       const formattedRequests = requestsData?.map(request => ({
-        id: request.profiles.friends_sender_id_fkey.id,
-        name: request.profiles.friends_sender_id_fkey.name,
-        username: request.profiles.friends_sender_id_fkey.username,
-        avatar: request.profiles.friends_sender_id_fkey.avatar,
+        id: request.sender_profile.id,
+        name: request.sender_profile.name,
+        username: request.sender_profile.username,
+        avatar: request.sender_profile.avatar,
         status: 'request' as const,
         relationship_id: request.id
       })) || [];
       
       console.log("Formatted requests:", formattedRequests);
       
-      // Get pending requests (where user is sender)
+      // Get pending requests (where user is sender) - fixed query
       const { data: pendingData, error: pendingError } = await supabase
         .from('friends')
         .select(`
           id,
           receiver_id,
-          profiles!friends_receiver_id_fkey (id, name, username, avatar)
+          receiver_profile:profiles!receiver_id(id, name, username, avatar)
         `)
         .eq('sender_id', user.id)
         .eq('status', 'pending');
@@ -322,12 +322,12 @@ export function FriendList() {
         console.error("Error fetching pending requests:", pendingError);
       }
         
-      // Format pending data
+      // Format pending data with proper property access
       const formattedPending = pendingData?.map(pending => ({
-        id: pending.profiles.friends_receiver_id_fkey.id,
-        name: pending.profiles.friends_receiver_id_fkey.name,
-        username: pending.profiles.friends_receiver_id_fkey.username,
-        avatar: pending.profiles.friends_receiver_id_fkey.avatar,
+        id: pending.receiver_profile.id,
+        name: pending.receiver_profile.name,
+        username: pending.receiver_profile.username,
+        avatar: pending.receiver_profile.avatar,
         status: 'pending' as const,
         relationship_id: pending.id
       })) || [];

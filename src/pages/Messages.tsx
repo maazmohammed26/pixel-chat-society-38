@@ -9,7 +9,6 @@ import { Send, MessageSquare, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Friend {
   id: string;
@@ -64,29 +63,32 @@ export function Messages() {
         });
       }
 
-      // Get accepted friends with explicit field selection and proper naming
+      // Fixed query for accepted friends
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
           sender_id, receiver_id,
-          profiles!friends_sender_id_fkey(id, name, username, avatar),
-          profiles!friends_receiver_id_fkey(id, name, username, avatar)
+          sender_profile:profiles!sender_id(id, name, username, avatar),
+          receiver_profile:profiles!receiver_id(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching friends for messages:", error);
+        throw error;
+      }
       
-      // Format friends data
+      // Format friends data with corrected property access
       const formattedFriends: Friend[] = [];
       
       friendsData?.forEach(friend => {
         // Determine if the current user is the sender or receiver
         const isSender = friend.sender_id === user.id;
         const friendProfile = isSender 
-          ? friend.profiles["friends_receiver_id_fkey"] 
-          : friend.profiles["friends_sender_id_fkey"];
+          ? friend.receiver_profile
+          : friend.sender_profile;
         
         if (friendProfile && friendProfile.id) {
           formattedFriends.push({
@@ -104,7 +106,7 @@ export function Messages() {
         setSelectedFriend(formattedFriends[0]);
       }
     } catch (error) {
-      console.error('Error fetching friends:', error);
+      console.error('Error fetching friends for messages:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -130,7 +132,7 @@ export function Messages() {
           receiver_id,
           content,
           created_at,
-          profiles!messages_sender_id_fkey(name, avatar)
+          sender:profiles!sender_id(name, avatar)
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
         .order('created_at');
@@ -144,8 +146,8 @@ export function Messages() {
         content: message.content,
         created_at: message.created_at,
         sender: {
-          name: message.profiles?.name || 'Unknown',
-          avatar: message.profiles?.avatar || ''
+          name: message.sender?.name || 'Unknown',
+          avatar: message.sender?.avatar || ''
         }
       }));
 
@@ -181,7 +183,8 @@ export function Messages() {
         .insert({
           sender_id: currentUser.id,
           receiver_id: selectedFriend.id,
-          content: newMessage.trim()
+          content: newMessage.trim(),
+          read: false
         })
         .select();
         
@@ -275,17 +278,31 @@ export function Messages() {
               toast({
                 title: `New message from ${senderData.name}`,
                 description: newMessage.content.substring(0, 50) + (newMessage.content.length > 50 ? '...' : ''),
+                className: 'bg-social-dark-green text-white',
               });
             }
           }
         }
       )
       .subscribe();
+      
+    // Also subscribe to friends table changes
+    const friendsChannel = supabase
+      .channel('friends-status-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'friends' }, 
+        () => {
+          // Refresh friends list when there's any change in the friends table
+          fetchFriends();
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(friendsChannel);
     };
-  }, [selectedFriend, currentUser, toast]);
+  }, [selectedFriend, currentUser]);
 
   useEffect(() => {
     if (selectedFriend) {
