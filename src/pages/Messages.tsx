@@ -90,15 +90,14 @@ export function Messages() {
         });
       }
 
-      // Fixed query for accepted friends to avoid parsing errors
+      // Fixed query for accepted friends - using explicit joins instead of embedding
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
           sender_id, 
           receiver_id,
-          sender:profiles(id, name, username, avatar),
-          receiver:profiles(id, name, username, avatar)
+          status
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -111,10 +110,18 @@ export function Messages() {
       // Format friends data with proper object structure
       const formattedFriends: Friend[] = [];
       
-      friendsData?.forEach(friend => {
+      // Process the friends data
+      for (const friend of friendsData || []) {
         // Determine if the current user is the sender or receiver
         const isSender = friend.sender_id === user.id;
-        const friendProfile = isSender ? friend.receiver : friend.sender;
+        const friendId = isSender ? friend.receiver_id : friend.sender_id;
+        
+        // Get the friend's profile details in a separate query
+        const { data: friendProfile } = await supabase
+          .from('profiles')
+          .select('id, name, username, avatar')
+          .eq('id', friendId)
+          .single();
         
         if (friendProfile && friendProfile.id) {
           formattedFriends.push({
@@ -125,7 +132,7 @@ export function Messages() {
             online: Math.random() > 0.5 // Random online status for demo
           });
         }
-      });
+      }
 
       setFriends(formattedFriends);
     } catch (error) {
