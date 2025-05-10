@@ -97,8 +97,8 @@ export function Messages() {
           id,
           sender_id, 
           receiver_id,
-          sender:profiles!friends_sender_id_fkey(id, name, username, avatar),
-          receiver:profiles!friends_receiver_id_fkey(id, name, username, avatar)
+          sender:profiles(id, name, username, avatar),
+          receiver:profiles(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -280,6 +280,14 @@ export function Messages() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
+  
+  // Handle enter key to send message
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   useEffect(() => {
     fetchFriends();
@@ -395,147 +403,6 @@ export function Messages() {
       fetchMessages(selectedFriend.id);
     }
   }, [selectedFriend]);
-
-  const fetchMessages = async (friendId: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) return;
-
-      // Get messages between current user and selected friend
-      const { data: messagesData, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          sender_id,
-          receiver_id,
-          content,
-          created_at,
-          profiles!messages_sender_id_fkey(name, avatar)
-        `)
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
-        .order('created_at');
-        
-      if (error) throw error;
-
-      const formattedMessages: Message[] = messagesData.map((message: any) => ({
-        id: message.id,
-        sender_id: message.sender_id,
-        receiver_id: message.receiver_id,
-        content: message.content,
-        created_at: message.created_at,
-        sender: {
-          name: message.profiles?.name || 'Unknown',
-          avatar: message.profiles?.avatar || ''
-        }
-      }));
-
-      setMessages(formattedMessages);
-      scrollToBottom();
-      
-      // Mark received messages as read
-      await supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('sender_id', friendId)
-        .eq('receiver_id', user.id)
-        .eq('read', false);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load messages'
-      });
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedFriend || !currentUser) return;
-    
-    try {
-      setSendingMessage(true);
-      
-      // Store message in local storage if offline
-      if (networkStatus === 'offline') {
-        const pendingMessages = JSON.parse(localStorage.getItem('pendingMessages') || '[]');
-        pendingMessages.push({
-          sender_id: currentUser.id,
-          receiver_id: selectedFriend.id,
-          content: newMessage.trim(),
-          created_at: new Date().toISOString()
-        });
-        localStorage.setItem('pendingMessages', JSON.stringify(pendingMessages));
-        
-        // Add to current messages for UI update
-        const offlineMessage = {
-          id: `offline-${Date.now()}`,
-          sender_id: currentUser.id,
-          receiver_id: selectedFriend.id,
-          content: newMessage.trim(),
-          created_at: new Date().toISOString(),
-          sender: {
-            name: currentUser.name,
-            avatar: currentUser.avatar
-          },
-          pending: true
-        };
-        
-        setMessages(prevMessages => [...prevMessages, offlineMessage as Message]);
-        setNewMessage('');
-        scrollToBottom();
-        
-        toast({
-          title: "Message saved",
-          description: "Will be sent when you're back online",
-          variant: "default",
-        });
-        return;
-      }
-      
-      // Insert new message
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          sender_id: currentUser.id,
-          receiver_id: selectedFriend.id,
-          content: newMessage.trim(),
-          read: false
-        })
-        .select();
-        
-      if (error) throw error;
-
-      // Manually add the message to the list for immediate feedback
-      if (data && data[0]) {
-        setMessages(prevMessages => [...prevMessages, {
-          ...data[0],
-          sender: {
-            name: currentUser.name,
-            avatar: currentUser.avatar
-          }
-        }]);
-      }
-      
-      setNewMessage('');
-      scrollToBottom();
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to send message'
-      });
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
 
   // Welcome message component
   const WelcomeMessage = () => (
