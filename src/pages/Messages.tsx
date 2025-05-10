@@ -44,6 +44,7 @@ export function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
+  const [welcomeShown, setWelcomeShown] = useState(false);
 
   // Monitor network status
   useEffect(() => {
@@ -62,6 +63,9 @@ export function Messages() {
 
     // Update document title
     document.title = "SocialChat";
+
+    // Set welcome as shown on first render
+    setWelcomeShown(true);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -90,15 +94,10 @@ export function Messages() {
         });
       }
 
-      // Fixed query for accepted friends - using explicit joins instead of embedding
+      // Get friend relationships first
       const { data: friendsData, error } = await supabase
         .from('friends')
-        .select(`
-          id,
-          sender_id, 
-          receiver_id,
-          status
-        `)
+        .select('id, sender_id, receiver_id, status')
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
         
@@ -110,27 +109,29 @@ export function Messages() {
       // Format friends data with proper object structure
       const formattedFriends: Friend[] = [];
       
-      // Process the friends data
-      for (const friend of friendsData || []) {
-        // Determine if the current user is the sender or receiver
-        const isSender = friend.sender_id === user.id;
-        const friendId = isSender ? friend.receiver_id : friend.sender_id;
-        
-        // Get the friend's profile details in a separate query
-        const { data: friendProfile } = await supabase
-          .from('profiles')
-          .select('id, name, username, avatar')
-          .eq('id', friendId)
-          .single();
-        
-        if (friendProfile && friendProfile.id) {
-          formattedFriends.push({
-            id: friendProfile.id,
-            name: friendProfile.name || 'User',
-            username: friendProfile.username || 'guest',
-            avatar: friendProfile.avatar || '',
-            online: Math.random() > 0.5 // Random online status for demo
-          });
+      // Process each relationship separately
+      if (friendsData) {
+        for (const friend of friendsData) {
+          // Determine if the current user is the sender or receiver
+          const isSender = friend.sender_id === user.id;
+          const friendId = isSender ? friend.receiver_id : friend.sender_id;
+          
+          // Get the friend's profile details in a separate query to avoid join issues
+          const { data: friendProfile } = await supabase
+            .from('profiles')
+            .select('id, name, username, avatar')
+            .eq('id', friendId)
+            .single();
+          
+          if (friendProfile && friendProfile.id) {
+            formattedFriends.push({
+              id: friendProfile.id,
+              name: friendProfile.name || 'User',
+              username: friendProfile.username || 'guest',
+              avatar: friendProfile.avatar || '',
+              online: Math.random() > 0.5 // Random online status for demo
+            });
+          }
         }
       }
 
@@ -297,6 +298,7 @@ export function Messages() {
   };
 
   useEffect(() => {
+    // Only fetch friends once to prevent looping
     fetchFriends();
     
     // Set up realtime subscription for messages
@@ -605,7 +607,7 @@ export function Messages() {
                 </div>
               </>
             ) : (
-              <WelcomeMessage />
+              welcomeShown && <WelcomeMessage />
             )}
           </div>
         </CardContent>
