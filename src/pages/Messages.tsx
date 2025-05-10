@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,14 +86,15 @@ export function Messages() {
         });
       }
 
-      // Fixed query for accepted friends
+      // Modified query for accepted friends to avoid the filter error
       const { data: friendsData, error } = await supabase
         .from('friends')
         .select(`
           id,
-          sender_id, receiver_id,
-          profiles!friends_sender_id_fkey(id, name, username, avatar),
-          profiles!friends_receiver_id_fkey(id, name, username, avatar)
+          sender_id, 
+          receiver_id,
+          profiles!sender:sender_id(id, name, username, avatar),
+          profiles!receiver:receiver_id(id, name, username, avatar)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq('status', 'accepted');
@@ -104,15 +104,13 @@ export function Messages() {
         throw error;
       }
       
-      // Format friends data with corrected foreign key references
+      // Format friends data with proper aliasing
       const formattedFriends: Friend[] = [];
       
       friendsData?.forEach(friend => {
         // Determine if the current user is the sender or receiver
         const isSender = friend.sender_id === user.id;
-        const friendProfile = isSender 
-          ? friend.profiles.filter((p: any) => p.id === friend.receiver_id)[0]
-          : friend.profiles.filter((p: any) => p.id === friend.sender_id)[0];
+        const friendProfile = isSender ? friend.receiver : friend.sender;
         
         if (friendProfile && friendProfile.id) {
           formattedFriends.push({
@@ -471,7 +469,7 @@ export function Messages() {
                         )}
                       </Avatar>
                       {friend.online && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></span>
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse-dot"></span>
                       )}
                     </div>
                     <div>
@@ -509,7 +507,7 @@ export function Messages() {
                       )}
                     </Avatar>
                     {selectedFriend.online && (
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></span>
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse-dot"></span>
                     )}
                   </div>
                   <div>
