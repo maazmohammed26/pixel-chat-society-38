@@ -1,4 +1,6 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -83,6 +85,11 @@
   }
 }
 
+.font-pixelated {
+  font-family: 'Press Start 2P', cursive;
+  letter-spacing: -0.05em;
+}
+
 .social-gradient {
   @apply bg-gradient-to-r from-social-dark-green to-social-forest-green;
 }
@@ -92,7 +99,7 @@
 }
 
 .message-bubble-sent {
-  @apply bg-social-dark-green text-white p-3 rounded-xl rounded-tr-none shadow-sm;
+  @apply bg-primary text-white p-3 rounded-xl rounded-tr-none shadow-sm;
 }
 
 .message-bubble-received {
@@ -105,7 +112,7 @@
 }
 
 .nav-tab {
-  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-social-dark-green data-[state=active]:text-social-dark-green data-[state=active]:bg-transparent;
+  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent;
 }
 
 /* Animations */
@@ -158,4 +165,26 @@
   .p-4.border-t {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+  
+  /* Hide sidebar when in chat mode */
+  .chat-active .friends-sidebar {
+    display: none;
+  }
+  
+  /* Show chat area in full width when active */
+  .chat-active .chat-container {
+    width: 100%;
+  }
+}
+
+/* Pixel art styling */
+.pixel-border {
+  image-rendering: pixelated;
+  border-style: solid;
+  border-width: 4px;
+  border-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALElEQVQYV2NkIAAYGRlh1H8YhQqwKWBgYIApwKYAtwIkBehW4LaAEQmDzDEAvUkEBmdsM9QAAAAASUVORK5CYII=') 2 stretch;
+}
+
+.pixel-shadow {
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
 }

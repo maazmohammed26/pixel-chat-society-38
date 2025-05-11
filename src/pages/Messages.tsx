@@ -5,11 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, MessageSquare, User } from 'lucide-react';
+import { Send, MessageSquare, User, X, ArrowLeft, Trash } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Friend {
   id: string;
@@ -18,7 +21,6 @@ interface Friend {
   avatar: string;
   lastMessage?: string;
   lastMessageTime?: string;
-  online?: boolean;
 }
 
 interface Message {
@@ -44,9 +46,11 @@ export function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
-  const [welcomeShown, setWelcomeShown] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [mobileView, setMobileView] = useState(window.innerWidth <= 640);
+  const navigate = useNavigate();
 
-  // Monitor network status
+  // Monitor network status and screen size
   useEffect(() => {
     const handleOnline = () => setNetworkStatus('online');
     const handleOffline = () => {
@@ -57,19 +61,22 @@ export function Messages() {
         variant: "destructive",
       });
     };
+    
+    const handleResize = () => {
+      setMobileView(window.innerWidth <= 640);
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
+    window.addEventListener('resize', handleResize);
+    
     // Update document title
     document.title = "SocialChat";
-
-    // Set welcome as shown on first render
-    setWelcomeShown(true);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('resize', handleResize);
     };
   }, [toast]);
 
@@ -106,7 +113,7 @@ export function Messages() {
         throw error;
       }
       
-      // Format friends data with proper object structure
+      // Format friends data
       const formattedFriends: Friend[] = [];
       
       // Process each relationship separately
@@ -116,7 +123,7 @@ export function Messages() {
           const isSender = friend.sender_id === user.id;
           const friendId = isSender ? friend.receiver_id : friend.sender_id;
           
-          // Get the friend's profile details in a separate query to avoid join issues
+          // Get the friend's profile details in a separate query
           const { data: friendProfile } = await supabase
             .from('profiles')
             .select('id, name, username, avatar')
@@ -128,8 +135,7 @@ export function Messages() {
               id: friendProfile.id,
               name: friendProfile.name || 'User',
               username: friendProfile.username || 'guest',
-              avatar: friendProfile.avatar || '',
-              online: Math.random() > 0.5 // Random online status for demo
+              avatar: friendProfile.avatar || ''
             });
           }
         }
@@ -297,6 +303,66 @@ export function Messages() {
     }
   };
 
+  const handleSelectFriend = (friend: Friend) => {
+    setSelectedFriend(friend);
+    fetchMessages(friend.id);
+    
+    // For mobile, we need to add a class to hide the sidebar
+    if (mobileView) {
+      document.querySelector('.friends-sidebar')?.classList.add('hidden');
+      document.querySelector('.chat-container')?.classList.remove('hidden');
+      document.querySelector('.chat-container')?.classList.add('w-full');
+    }
+  };
+  
+  const handleBackToFriends = () => {
+    if (mobileView) {
+      document.querySelector('.friends-sidebar')?.classList.remove('hidden');
+      document.querySelector('.chat-container')?.classList.add('hidden');
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      // First delete the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+        
+      if (profileError) throw profileError;
+      
+      // Then delete the user account
+      const { error: authError } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (authError) throw authError;
+      
+      // Sign out the user
+      await supabase.auth.signOut();
+      
+      toast({
+        title: "Account deleted",
+        description: "Your account has been permanently deleted",
+        variant: "default",
+      });
+      
+      navigate('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete account. Please try again.'
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+    }
+  };
+
   useEffect(() => {
     // Only fetch friends once to prevent looping
     fetchFriends();
@@ -341,7 +407,6 @@ export function Messages() {
             }
           } else if (newMessage.receiver_id === currentUser?.id) {
             // If we received a message from someone else, refresh friends list
-            // to update unread counts
             fetchFriends();
             
             // Show notification
@@ -352,10 +417,29 @@ export function Messages() {
               .single();
               
             if (senderData) {
+              // Show browser notification
+              if (Notification.permission === 'granted') {
+                const notification = new Notification(`New message from ${senderData.name}`, {
+                  body: newMessage.content.substring(0, 50) + (newMessage.content.length > 50 ? '...' : ''),
+                  icon: '/favicon.ico'
+                });
+                
+                notification.onclick = () => {
+                  window.focus();
+                  // Find the friend and select them
+                  const friend = friends.find(f => f.id === newMessage.sender_id);
+                  if (friend) {
+                    setSelectedFriend(friend);
+                    fetchMessages(friend.id);
+                  }
+                };
+              }
+              
+              // Show toast notification
               toast({
                 title: `New message from ${senderData.name}`,
                 description: newMessage.content.substring(0, 50) + (newMessage.content.length > 50 ? '...' : ''),
-                className: 'bg-social-dark-green text-white',
+                className: 'bg-primary text-white font-pixelated',
               });
             }
           }
@@ -374,6 +458,11 @@ export function Messages() {
         }
       )
       .subscribe();
+
+    // Request notification permission
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
 
     // Try to send pending messages when back online
     if (networkStatus === 'online') {
@@ -413,40 +502,32 @@ export function Messages() {
     }
   }, [selectedFriend]);
 
-  // Welcome message component
-  const WelcomeMessage = () => (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6 animate-fade-in">
-      <MessageSquare className="h-16 w-16 text-social-dark-green mb-4" />
-      <h1 className="text-2xl font-bold mb-2">Welcome to SocialChat!</h1>
-      <p className="text-muted-foreground mb-6 max-w-md">
-        This application is developed by Mohammed Maaz A. It's currently under development 
-        and serves as a small demo of real-time chat capabilities.
-      </p>
-      <p className="text-social-dark-green font-medium">
-        Enjoy exploring the features and thank you for checking out this project!
-      </p>
-      <div className="mt-8">
-        <p className="text-sm text-muted-foreground">Select a friend from the list to start chatting</p>
-      </div>
-    </div>
-  );
-
   return (
     <DashboardLayout>
       <Card className="h-[calc(100vh-180px)] md:h-[calc(100vh-130px)] flex flex-col card-gradient">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
+        <CardHeader className="pb-2 font-pixelated">
+          <CardTitle className="text-2xl font-pixelated flex items-center gap-2">
             <MessageSquare className="h-6 w-6" /> Messages
           </CardTitle>
           <CardDescription>
-            Your conversations with friends
+            Chat with your friends
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 flex gap-4 overflow-hidden p-0">
           {/* Friends list */}
-          <div className="w-1/3 md:w-1/4 border-r p-4 overflow-y-auto">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <User className="h-4 w-4" /> Contacts
+          <div className={`friends-sidebar w-full md:w-1/4 border-r p-4 overflow-y-auto ${mobileView && selectedFriend ? 'hidden' : ''}`}>
+            <h3 className="font-pixelated mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <User className="h-4 w-4" /> Contacts
+              </span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+              >
+                <Trash className="h-4 w-4" />
+              </Button>
             </h3>
             {loading ? (
               <div className="space-y-3">
@@ -467,27 +548,22 @@ export function Messages() {
                     key={friend.id}
                     className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
                       selectedFriend?.id === friend.id 
-                        ? 'bg-social-dark-green text-white' 
+                        ? 'bg-primary text-white' 
                         : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => setSelectedFriend(friend)}
+                    } pixel-border pixel-shadow`}
+                    onClick={() => handleSelectFriend(friend)}
                   >
-                    <div className="relative">
-                      <Avatar>
-                        {friend.avatar ? (
-                          <AvatarImage src={friend.avatar} />
-                        ) : (
-                          <AvatarFallback className="bg-social-dark-green text-white">
-                            {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      {friend.online && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse-dot"></span>
+                    <Avatar>
+                      {friend.avatar ? (
+                        <AvatarImage src={friend.avatar} />
+                      ) : (
+                        <AvatarFallback className="bg-primary text-white font-pixelated">
+                          {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
+                        </AvatarFallback>
                       )}
-                    </div>
+                    </Avatar>
                     <div>
-                      <p className="font-medium">{friend.name || 'User'}</p>
+                      <p className="font-pixelated text-xs">{friend.name || 'User'}</p>
                       <p className="text-xs text-muted-foreground">@{friend.username || 'guest'}</p>
                     </div>
                   </div>
@@ -495,9 +571,9 @@ export function Messages() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No friends yet</p>
+                <p className="text-muted-foreground mb-4 font-pixelated">No friends yet</p>
                 <p className="text-sm mt-1">Add friends to start chatting</p>
-                <Button variant="outline" className="mt-4 bg-social-dark-green text-white hover:bg-social-forest-green" asChild>
+                <Button variant="outline" className="mt-4 bg-primary text-white hover:bg-primary/90 font-pixelated" asChild>
                   <a href="/friends">Find Friends</a>
                 </Button>
               </div>
@@ -505,35 +581,35 @@ export function Messages() {
           </div>
           
           {/* Chat area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className={`chat-container flex-1 flex flex-col overflow-hidden ${mobileView && !selectedFriend ? 'hidden' : ''}`}>
             {selectedFriend ? (
               <>
                 {/* Chat header */}
-                <div className="p-4 border-b flex items-center gap-3">
-                  <div className="relative">
+                <div className="p-4 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {mobileView && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleBackToFriends}
+                        className="mr-2"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Avatar>
                       {selectedFriend.avatar ? (
                         <AvatarImage src={selectedFriend.avatar} />
                       ) : (
-                        <AvatarFallback className="bg-social-dark-green text-white">
+                        <AvatarFallback className="bg-primary text-white font-pixelated">
                           {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                         </AvatarFallback>
                       )}
                     </Avatar>
-                    {selectedFriend.online && (
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse-dot"></span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{selectedFriend.name || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      @{selectedFriend.username || 'guest'} · 
-                      {selectedFriend.online ? (
-                        <span className="text-green-500 ml-1">Online</span>
-                      ) : (
-                        <span className="text-muted-foreground ml-1">Offline</span>
-                      )}
-                    </p>
+                    <div>
+                      <p className="font-pixelated text-sm">{selectedFriend.name || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">@{selectedFriend.username || 'guest'}</p>
+                    </div>
                   </div>
                 </div>
                 
@@ -551,12 +627,12 @@ export function Messages() {
                               {message.sender?.avatar ? (
                                 <AvatarImage src={message.sender.avatar} />
                               ) : (
-                                <AvatarFallback className="bg-social-dark-green text-white">
+                                <AvatarFallback className="bg-primary text-white font-pixelated">
                                   {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
                                 </AvatarFallback>
                               )}
                             </Avatar>
-                            <div className={`${message.sender_id === currentUser?.id ? 'message-bubble-sent' : 'message-bubble-received'} ${(message as any).pending ? 'opacity-70' : ''}`}>
+                            <div className={`${message.sender_id === currentUser?.id ? 'message-bubble-sent' : 'message-bubble-received'} ${(message as any).pending ? 'opacity-70' : ''} font-pixelated text-xs`}>
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
                               <div className="flex items-center justify-between mt-1">
                                 <p className="text-xs opacity-70">
@@ -574,7 +650,7 @@ export function Messages() {
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center">
-                      <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+                      <p className="text-muted-foreground font-pixelated">Start the conversation!</p>
                     </div>
                   )}
                 </div>
@@ -582,22 +658,24 @@ export function Messages() {
                 {/* Message input */}
                 <div className="p-4 border-t">
                   {networkStatus === 'offline' && (
-                    <div className="bg-amber-50 text-amber-800 text-sm rounded-md p-2 mb-2 flex items-center">
-                      <div className="h-2 w-2 bg-amber-500 rounded-full mr-2"></div>
-                      You're offline. Messages will be sent when you reconnect.
-                    </div>
+                    <Alert className="mb-2 bg-amber-50 text-amber-800 border-amber-200">
+                      <AlertDescription className="flex items-center">
+                        <div className="h-2 w-2 bg-amber-500 rounded-full mr-2"></div>
+                        You're offline. Messages will be sent when you reconnect.
+                      </AlertDescription>
+                    </Alert>
                   )}
                   <div className="flex gap-2">
                     <Textarea 
                       placeholder="Type a message..." 
-                      className="flex-1 min-h-[60px] max-h-[120px] focus-visible:ring-social-dark-green"
+                      className="flex-1 min-h-[60px] max-h-[120px] focus-visible:ring-primary font-pixelated text-sm"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="self-end bg-social-dark-green hover:bg-social-forest-green text-white"
+                      className="self-end bg-primary hover:bg-primary/90 text-white font-pixelated"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >
@@ -607,11 +685,41 @@ export function Messages() {
                 </div>
               </>
             ) : (
-              welcomeShown && <WelcomeMessage />
+              <div className="flex flex-col items-center justify-center h-full text-center p-6 animate-fade-in">
+                <MessageSquare className="h-16 w-16 text-primary mb-4" />
+                <h1 className="text-xl font-pixelated mb-2">Pixel Chat</h1>
+                <p className="text-muted-foreground mb-6 max-w-md font-pixelated">
+                  Select a friend to start chatting
+                </p>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
+      
+      {/* Delete Account Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="font-pixelated">Delete Your Account?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. All your data will be permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={deleteAccount}
+              className="font-pixelated"
+            >
+              Delete Forever
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

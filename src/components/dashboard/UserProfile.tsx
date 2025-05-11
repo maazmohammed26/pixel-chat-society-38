@@ -6,16 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, AtSign, Camera, Edit2, Loader2 } from 'lucide-react';
+import { User, Mail, AtSign, Camera, Edit2, Loader2, Trash } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserProfile, updateUserProfile } from '@/utils/authUtils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useNavigate } from 'react-router-dom';
 
 export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({
     id: '',
     name: '',
@@ -92,7 +96,7 @@ export function UserProfile() {
       toast({
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
-        className: 'bg-social-dark-green text-white',
+        className: 'bg-primary text-white font-pixelated',
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -166,7 +170,7 @@ export function UserProfile() {
       toast({
         title: 'Avatar updated',
         description: 'Your profile picture has been updated successfully.',
-        className: 'bg-social-dark-green text-white',
+        className: 'bg-primary text-white font-pixelated',
       });
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -180,6 +184,37 @@ export function UserProfile() {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+  
+  const deleteAccount = async () => {
+    try {
+      // Delete user's profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', profile.id);
+        
+      if (profileError) throw profileError;
+      
+      // Delete user from auth
+      await supabase.auth.signOut();
+      
+      toast({
+        title: 'Account deleted',
+        description: 'Your account has been successfully deleted.',
+        className: 'bg-destructive text-white font-pixelated',
+      });
+      
+      // Redirect to home page
+      navigate('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete your account. Please try again.',
+      });
     }
   };
 
@@ -211,15 +246,15 @@ export function UserProfile() {
     <Card className="animate-fade-in">
       <CardHeader className="text-center pb-0">
         <div className="relative w-24 h-24 mx-auto mb-4">
-          <Avatar className="w-24 h-24 border-4 border-background cursor-pointer" onClick={handleProfilePictureClick}>
+          <Avatar className="w-24 h-24 border-4 border-background cursor-pointer pixel-border" onClick={handleProfilePictureClick}>
             {uploadingAvatar ? (
               <div className="h-full w-full flex items-center justify-center bg-muted/20">
-                <Loader2 className="h-8 w-8 animate-spin text-social-dark-green" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
               <>
                 <AvatarImage src={profile.avatar} alt={profile.name} />
-                <AvatarFallback className="text-2xl bg-social-dark-green text-white">
+                <AvatarFallback className="text-2xl bg-primary text-white font-pixelated">
                   {profile.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </>
@@ -237,7 +272,7 @@ export function UserProfile() {
             <Button 
               size="icon" 
               variant="secondary" 
-              className="rounded-full w-8 h-8 bg-social-dark-green hover:bg-social-forest-green text-white"
+              className="rounded-full w-8 h-8 bg-primary hover:bg-primary/90 text-white"
               onClick={handleProfilePictureClick}
               disabled={uploadingAvatar}
             >
@@ -250,13 +285,13 @@ export function UserProfile() {
           <div className="space-y-3 mt-4">
             <div>
               <Label htmlFor="name">Name</Label>
-              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-social-dark-green mt-1">
+              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <User className="ml-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="name"
                   name="name"
                   placeholder="Your name" 
-                  className="border-0 bg-transparent focus-visible:ring-0" 
+                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
                   value={profile.name}
                   onChange={handleChange}
                 />
@@ -265,12 +300,12 @@ export function UserProfile() {
             
             <div>
               <Label htmlFor="bio">Bio</Label>
-              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-social-dark-green mt-1">
+              <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <Input 
                   id="bio"
                   name="bio"
                   placeholder="Tell us about yourself" 
-                  className="border-0 bg-transparent focus-visible:ring-0" 
+                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
                   value={profile.bio || ''}
                   onChange={handleChange}
                 />
@@ -278,11 +313,11 @@ export function UserProfile() {
             </div>
             
             <div className="flex justify-end space-x-2 pt-2">
-              <Button variant="outline" onClick={handleCancel}>
+              <Button variant="outline" onClick={handleCancel} className="font-pixelated">
                 Cancel
               </Button>
               <Button 
-                className="bg-social-dark-green hover:bg-social-forest-green text-white" 
+                className="bg-primary hover:bg-primary/90 text-white font-pixelated" 
                 onClick={handleSave}
               >
                 Save
@@ -291,7 +326,7 @@ export function UserProfile() {
           </div>
         ) : (
           <>
-            <CardTitle className="text-xl font-bold flex items-center justify-center gap-2">
+            <CardTitle className="text-xl font-pixelated flex items-center justify-center gap-2">
               {profile.name}
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleEdit}>
                 <Edit2 className="h-3.5 w-3.5" />
@@ -300,7 +335,7 @@ export function UserProfile() {
             <div className="text-sm text-muted-foreground">@{profile.username}</div>
             
             {profile.bio && (
-              <p className="mt-2 text-sm">{profile.bio}</p>
+              <p className="mt-2 text-sm font-pixelated">{profile.bio}</p>
             )}
           </>
         )}
@@ -311,11 +346,11 @@ export function UserProfile() {
         
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
-            <p className="text-2xl font-semibold">{profile.friendCount}</p>
+            <p className="text-2xl font-semibold font-pixelated">{profile.friendCount}</p>
             <p className="text-sm text-muted-foreground">Friends</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold">{profile.postCount}</p>
+            <p className="text-2xl font-semibold font-pixelated">{profile.postCount}</p>
             <p className="text-sm text-muted-foreground">Posts</p>
           </div>
         </div>
@@ -325,12 +360,42 @@ export function UserProfile() {
         <div className="space-y-2">
           <div className="flex items-center text-sm">
             <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>{profile.email}</span>
+            <span className="font-pixelated text-xs">{profile.email}</span>
           </div>
           <div className="flex items-center text-sm">
             <AtSign className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>@{profile.username}</span>
+            <span className="font-pixelated text-xs">@{profile.username}</span>
           </div>
+        </div>
+        
+        <div className="mt-6 flex justify-center">
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="font-pixelated">
+                <Trash className="mr-2 h-4 w-4" /> Delete Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-pixelated">Delete Your Account?</DialogTitle>
+                <DialogDescription>
+                  This action cannot be undone. All your data will be permanently deleted.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive"
+                  className="font-pixelated"
+                  onClick={deleteAccount}
+                >
+                  Delete Forever
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>
