@@ -39,7 +39,7 @@ export function LoginForm() {
       
       toast({
         title: 'Login successful!',
-        description: 'Welcome back to PixelChat.',
+        description: 'Welcome back to SocialChat.',
       });
       
       // Redirect to dashboard after successful login
@@ -69,8 +69,11 @@ export function LoginForm() {
   return (
     <div className="w-full animate-fade-in">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold social-gradient bg-clip-text text-transparent">Welcome Back</h1>
-        <p className="text-muted-foreground mt-2">Sign in to your account</p>
+        <div className="flex justify-center mb-4 animate-pulse-dot">
+          <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-20 w-auto" />
+        </div>
+        <h1 className="text-3xl font-bold font-pixelated social-gradient bg-clip-text text-transparent">Welcome Back</h1>
+        <p className="text-muted-foreground mt-2 font-pixelated">Sign in to your account</p>
       </div>
       
       <Form {...form}>
@@ -80,18 +83,18 @@ export function LoginForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel className="font-pixelated">Email</FormLabel>
                 <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
+                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring pixel-border">
                     <Mail className="ml-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Enter your email address" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
+                      className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
                       {...field} 
                     />
                   </div>
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="font-pixelated" />
               </FormItem>
             )}
           />
@@ -101,32 +104,32 @@ export function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel className="font-pixelated">Password</FormLabel>
                 <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
+                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring pixel-border">
                     <Lock className="ml-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       type="password" 
                       placeholder="Enter your password" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
+                      className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
                       {...field} 
                     />
                   </div>
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="font-pixelated" />
               </FormItem>
             )}
           />
 
           <div className="flex items-center justify-end">
-            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline font-pixelated">
               Forgot password?
             </Link>
           </div>
           
           <Button 
             type="submit" 
-            className="w-full mt-6 btn-gradient"
+            className="w-full mt-6 btn-gradient font-pixelated pixel-shadow"
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
@@ -135,10 +138,15 @@ export function LoginForm() {
       </Form>
       
       <div className="mt-6 text-center text-sm">
-        <span className="text-muted-foreground">Don't have an account?</span>{' '}
-        <Link to="/register" className="font-medium text-primary hover:underline">
+        <span className="text-muted-foreground font-pixelated">Don't have an account?</span>{' '}
+        <Link to="/register" className="font-medium text-primary hover:underline font-pixelated">
           Sign up
         </Link>
+      </div>
+      
+      <div className="mt-8 text-center text-xs text-muted-foreground font-pixelated">
+        <p>App is still under development</p>
+        <p>Developed by Mohammed Maaz A</p>
       </div>
     </div>
   );

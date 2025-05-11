@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
+import { toast } from "@/components/ui/sonner";
 
 // Pages
 import Index from "./pages/Index";
@@ -29,6 +30,27 @@ const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // Set favicon
+  useEffect(() => {
+    const faviconLink = document.querySelector("link[rel*='icon']") || document.createElement('link');
+    faviconLink.setAttribute('rel', 'shortcut icon');
+    faviconLink.setAttribute('href', '/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png');
+    document.head.appendChild(faviconLink);
+    
+    // Show development notification
+    if (session) {
+      setTimeout(() => {
+        toast.info(
+          "App is under development",
+          {
+            description: "Developed by Mohammed Maaz A. Thank you for using my project!",
+            duration: 5000,
+          }
+        );
+      }, 1500);
+    }
+  }, [session]);
+  
   useEffect(() => {
     // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -44,6 +66,15 @@ const App = () => {
       setLoading(false);
     });
 
+    // Setup push notifications
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        Notification.requestPermission();
+      } catch (error) {
+        console.error("Error requesting notification permission:", error);
+      }
+    }
+
     return () => {
       subscription.unsubscribe();
     };
@@ -52,7 +83,7 @@ const App = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-social-blue"></div>
+        <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-16 w-auto animate-pulse" />
       </div>
     );
   }

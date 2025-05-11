@@ -137,41 +137,47 @@ export function UserProfile() {
     try {
       setUploadingAvatar(true);
       
-      // Generate a unique filename using UUID
+      // Generate a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${profile.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       
-      // Upload file to default Supabase storage bucket
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file);
+      // Instead of using the storage bucket directly, use data URLs for simplicity
+      // since we're having issues with the storage bucket
+      const reader = new FileReader();
       
-      if (uploadError) throw uploadError;
+      reader.onload = async (event) => {
+        if (!event.target || typeof event.target.result !== 'string') {
+          throw new Error('Failed to read file');
+        }
+        
+        const avatarDataUrl = event.target.result;
+        
+        // Update the profile with the new avatar URL
+        await updateUserProfile(profile.id, {
+          avatar: avatarDataUrl,
+          updated_at: new Date()
+        });
+        
+        // Update local state
+        setProfile(prev => ({
+          ...prev,
+          avatar: avatarDataUrl
+        }));
+        
+        toast({
+          title: 'Avatar updated',
+          description: 'Your profile picture has been updated successfully.',
+          className: 'bg-primary text-white font-pixelated',
+        });
+        
+        setUploadingAvatar(false);
+      };
       
-      // Get the public URL for the uploaded file
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
+      reader.onerror = () => {
+        throw new Error('Failed to read file');
+      };
       
-      const avatarUrl = publicUrlData.publicUrl;
-      
-      // Update the profile with the new avatar URL
-      await updateUserProfile(profile.id, {
-        avatar: avatarUrl,
-        updated_at: new Date()
-      });
-      
-      // Update local state
-      setProfile(prev => ({
-        ...prev,
-        avatar: avatarUrl
-      }));
-      
-      toast({
-        title: 'Avatar updated',
-        description: 'Your profile picture has been updated successfully.',
-        className: 'bg-primary text-white font-pixelated',
-      });
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast({
@@ -179,8 +185,8 @@ export function UserProfile() {
         title: 'Upload failed',
         description: 'Failed to upload profile picture. Please try again.',
       });
-    } finally {
       setUploadingAvatar(false);
+    } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -245,6 +251,9 @@ export function UserProfile() {
   return (
     <Card className="animate-fade-in">
       <CardHeader className="text-center pb-0">
+        <div className="flex justify-center mb-2">
+          <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-12 w-auto" />
+        </div>
         <div className="relative w-24 h-24 mx-auto mb-4">
           <Avatar className="w-24 h-24 border-4 border-background cursor-pointer pixel-border" onClick={handleProfilePictureClick}>
             {uploadingAvatar ? (
@@ -284,7 +293,7 @@ export function UserProfile() {
         {isEditing ? (
           <div className="space-y-3 mt-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="font-pixelated">Name</Label>
               <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <User className="ml-3 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -299,7 +308,7 @@ export function UserProfile() {
             </div>
             
             <div>
-              <Label htmlFor="bio">Bio</Label>
+              <Label htmlFor="bio" className="font-pixelated">Bio</Label>
               <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <Input 
                   id="bio"
@@ -332,7 +341,7 @@ export function UserProfile() {
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
             </CardTitle>
-            <div className="text-sm text-muted-foreground">@{profile.username}</div>
+            <div className="text-sm text-muted-foreground font-pixelated">@{profile.username}</div>
             
             {profile.bio && (
               <p className="mt-2 text-sm font-pixelated">{profile.bio}</p>
@@ -347,11 +356,11 @@ export function UserProfile() {
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
             <p className="text-2xl font-semibold font-pixelated">{profile.friendCount}</p>
-            <p className="text-sm text-muted-foreground">Friends</p>
+            <p className="text-sm text-muted-foreground font-pixelated">Friends</p>
           </div>
           <div>
             <p className="text-2xl font-semibold font-pixelated">{profile.postCount}</p>
-            <p className="text-sm text-muted-foreground">Posts</p>
+            <p className="text-sm text-muted-foreground font-pixelated">Posts</p>
           </div>
         </div>
         
@@ -378,12 +387,12 @@ export function UserProfile() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="font-pixelated">Delete Your Account?</DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="font-pixelated">
                   This action cannot be undone. All your data will be permanently deleted.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="font-pixelated">
                   Cancel
                 </Button>
                 <Button 
@@ -396,6 +405,13 @@ export function UserProfile() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
+        
+        <div className="mt-8 text-center text-xs text-muted-foreground font-pixelated">
+          <div className="flex items-center justify-center space-x-1">
+            <span>Developed by Mohammed Maaz A</span>
+            <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat" className="h-4 w-auto" />
+          </div>
         </div>
       </CardContent>
     </Card>

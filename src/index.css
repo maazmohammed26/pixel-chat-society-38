@@ -83,6 +83,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  h1, h2, h3, h4, h5, h6, button, label, p {
+    @apply font-pixelated;
+  }
 }
 
 .font-pixelated {
@@ -94,12 +97,16 @@
   @apply bg-gradient-to-r from-social-dark-green to-social-forest-green;
 }
 
+.btn-gradient {
+  @apply bg-social-green text-white hover:bg-social-light-green;
+}
+
 .card-gradient {
   @apply bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950;
 }
 
 .message-bubble-sent {
-  @apply bg-primary text-white p-3 rounded-xl rounded-tr-none shadow-sm;
+  @apply bg-social-green text-white p-3 rounded-xl rounded-tr-none shadow-sm;
 }
 
 .message-bubble-received {
@@ -127,12 +134,22 @@
   100% { opacity: 0.6; }
 }
 
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
 
 .animate-pulse-dot {
   animation: pulseGlow 2s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 /* Mobile optimizations */
@@ -181,10 +198,22 @@
 .pixel-border {
   image-rendering: pixelated;
   border-style: solid;
-  border-width: 4px;
+  border-width: 2px;
   border-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALElEQVQYV2NkIAAYGRlh1H8YhQqwKWBgYIApwKYAtwIkBehW4LaAEQmDzDEAvUkEBmdsM9QAAAAASUVORK5CYII=') 2 stretch;
 }
 
 .pixel-shadow {
   box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
+}
+
+/* Logo styling */
+.app-logo {
+  filter: drop-shadow(0 0 10px rgba(105, 255, 136, 0.5));
+}
+
+/* Toast Notification Styling */
+.toast-notification {
+  @apply font-pixelated;
+  border: 2px solid;
+  border-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALElEQVQYV2NkIAAYGRlh1H8YhQqwKWBgYIApwKYAtwIkBehW4LaAEQmDzDEAvUkEBmdsM9QAAAAASUVORK5CYII=') 2 stretch;
 }
