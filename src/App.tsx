@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "@/components/ui/sonner";
+import { useNotifications } from "@/hooks/use-notifications";
 
 // Pages
 import Index from "./pages/Index";
@@ -37,17 +38,12 @@ const App = () => {
     faviconLink.setAttribute('href', '/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png');
     document.head.appendChild(faviconLink);
     
-    // Show development notification
+    document.title = "SocialChat";
+    
     if (session) {
-      setTimeout(() => {
-        toast.info(
-          "App is under development",
-          {
-            description: "Developed by Mohammed Maaz A. Thank you for using my project!",
-            duration: 5000,
-          }
-        );
-      }, 1500);
+      // Set up notification listeners
+      const { setupMessageNotifications } = useNotifications();
+      setupMessageNotifications(session.user.id);
     }
   }, [session]);
   

@@ -117,8 +117,6 @@ export function Index() {
         <div className="container mx-auto px-6 text-sm text-muted-foreground text-center">
           <div className="flex flex-col items-center justify-center space-y-2">
             <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-8 w-auto mb-2" />
-            <p className="font-pixelated">App is still under development</p>
-            <p className="font-pixelated">Developed by Mohammed Maaz A</p>
             <p className="font-pixelated">© 2025 SocialChat. All rights reserved.</p>
           </div>
         </div>

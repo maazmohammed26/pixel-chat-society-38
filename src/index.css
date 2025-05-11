@@ -42,6 +42,7 @@
     --social-light-green: 144 70% 45%;
     --social-magenta: 328 85% 45%;
     --social-purple: 262 83% 58%;
+    --social-blue: 224 76% 48%;
     --social-green: 142 76% 36%;
   }
  
@@ -119,7 +120,7 @@
 }
 
 .nav-tab {
-  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent;
+  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-social-green data-[state=active]:text-social-green data-[state=active]:bg-transparent;
 }
 
 /* Animations */
@@ -162,15 +163,6 @@
   .h-\[calc\(100vh-180px\)\] {
     height: calc(100vh - 180px);
     max-height: -webkit-fill-available;
-  }
-  
-  /* Remove extra whitespace on mobile */
-  body, html {
-    @apply overscroll-none;
-    overflow-x: hidden;
-    position: fixed;
-    width: 100%;
-    height: 100%;
   }
   
   /* Better touch feedback */
@@ -216,4 +208,56 @@
   @apply font-pixelated;
   border: 2px solid;
   border-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALElEQVQYV2NkIAAYGRlh1H8YhQqwKWBgYIApwKYAtwIkBehW4LaAEQmDzDEAvUkEBmdsM9QAAAAASUVORK5CYII=') 2 stretch;
+}
+
+/* Real-time indicators */
+.status-indicator {
+  @apply h-2.5 w-2.5 rounded-full;
+}
+
+.status-online {
+  @apply bg-social-green;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-offline {
+  @apply bg-gray-400;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Improved mobile view */
+@media (max-width: 767px) {
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-background border-t z-50;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .main-content {
+    padding-bottom: 72px; /* Space for mobile nav */
+  }
+  
+  .friends-list, .chats-list {
+    @apply max-h-[calc(100vh-200px)] overflow-y-auto;
+  }
+  
+  .message-container {
+    @apply fixed inset-0 z-50 bg-background pt-16;
+  }
+  
+  .full-height-mobile {
+    height: calc(100vh - 180px);
+  }
+  
+  /* Remove scroll bounce effect */
+  html, body {
+    @apply overscroll-none;
+  }
 }

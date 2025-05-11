@@ -143,11 +143,6 @@ export function LoginForm() {
           Sign up
         </Link>
       </div>
-      
-      <div className="mt-8 text-center text-xs text-muted-foreground font-pixelated">
-        <p>App is still under development</p>
-        <p>Developed by Mohammed Maaz A</p>
-      </div>
     </div>
   );
 }
