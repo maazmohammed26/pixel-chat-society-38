@@ -29,9 +29,9 @@ const queryClient = new QueryClient();
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { setupMessageNotifications } = useNotifications();
+  const { setupAllNotifications } = useNotifications();
   
-  // Set favicon
+  // Set favicon and handle notifications
   useEffect(() => {
     const faviconLink = document.querySelector("link[rel*='icon']") || document.createElement('link');
     faviconLink.setAttribute('rel', 'shortcut icon');
@@ -40,11 +40,19 @@ const App = () => {
     
     document.title = "SocialChat";
     
-    // Set up message notifications when session changes and user is authenticated
+    // Set up notifications when session changes and user is authenticated
+    let cleanupNotifications: (() => void) | undefined;
+    
     if (session) {
-      setupMessageNotifications(session.user.id);
+      cleanupNotifications = setupAllNotifications(session.user.id);
     }
-  }, [session, setupMessageNotifications]);
+    
+    return () => {
+      if (cleanupNotifications) {
+        cleanupNotifications();
+      }
+    };
+  }, [session, setupAllNotifications]);
   
   useEffect(() => {
     // Set up the auth state listener first

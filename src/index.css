@@ -83,6 +83,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    width: 100vw;
+    max-width: 100%;
   }
   h1, h2, h3, h4, h5, h6, button, label, p {
     @apply font-pixelated;
@@ -184,6 +187,37 @@
   .chat-active .chat-container {
     width: 100%;
   }
+
+  /* Ensure buttons don't overflow */
+  .mobile-buttons-container {
+    @apply flex flex-col sm:flex-row gap-2 w-full;
+  }
+
+  /* Fix text overflow issues */
+  h1, h2, h3, p {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  /* Ensure cards don't overflow */
+  .card {
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Main content fixes */
+  .main-content {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding: 0.5rem;
+  }
+  
+  /* Login/Register form container */
+  .auth-container {
+    @apply px-4 w-full;
+  }
 }
 
 /* Pixel art styling */
@@ -241,7 +275,8 @@
   }
   
   .main-content {
-    padding-bottom: 72px; /* Space for mobile nav */
+    padding-bottom: 80px; /* Space for mobile nav */
+    padding-top: 80px; /* Space for mobile header */
   }
   
   .friends-list, .chats-list {
@@ -253,11 +288,59 @@
   }
   
   .full-height-mobile {
-    height: calc(100vh - 180px);
+    height: calc(100vh - 200px);
   }
   
   /* Remove scroll bounce effect */
   html, body {
     @apply overscroll-none;
   }
+  
+  /* Fix content padding on mobile */
+  .container {
+    @apply px-3;
+  }
+  
+  /* Adjust card content for small screens */
+  .card-content {
+    @apply p-3;
+  }
+
+  /* Ensure buttons stay within viewport */
+  .btn-container {
+    @apply flex flex-col sm:flex-row gap-2;
+  }
+  
+  /* Scale down large text */
+  .text-4xl {
+    @apply text-2xl;
+  }
+  
+  .text-3xl {
+    @apply text-xl;
+  }
+  
+  .text-2xl {
+    @apply text-lg;
+  }
+  
+  /* Fix mobile header spacing */
+  .mobile-header {
+    @apply py-2;
+  }
+  
+  /* Adjust grid layouts for mobile */
+  .grid-cols-2 {
+    @apply grid-cols-1 sm:grid-cols-2;
+  }
+}
+
+/* Development banner */
+.dev-banner {
+  @apply bg-yellow-100 text-yellow-800 p-2 text-center text-sm w-full font-pixelated;
+}
+
+/* Support button */
+.support-button {
+  @apply bg-social-blue text-white px-4 py-2 rounded-full font-pixelated flex items-center justify-center gap-2 hover:bg-social-blue/90 transition-all;
 }

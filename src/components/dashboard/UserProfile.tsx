@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, AtSign, Camera, Edit2, Loader2, Trash } from 'lucide-react';
+import { User, Mail, AtSign, Camera, Edit2, Loader2, Trash, MessageSquare, ExternalLink } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserProfile, updateUserProfile } from '@/utils/authUtils';
@@ -224,6 +223,10 @@ export function UserProfile() {
     }
   };
 
+  const openSupportChat = () => {
+    window.open("https://chat.whatsapp.com/HiR5PQ43Apv1PopZZXTAkT", "_blank");
+  };
+
   if (loading) {
     return (
       <Card className="animate-pulse">
@@ -250,20 +253,24 @@ export function UserProfile() {
 
   return (
     <Card className="animate-fade-in">
-      <CardHeader className="text-center pb-0">
+      <div className="dev-banner text-xs">
+        This project is still under development by Mohammed Maaz A. Please share your feedback!
+      </div>
+      
+      <CardHeader className="text-center pb-0 pt-4 px-4 sm:px-6">
         <div className="flex justify-center mb-2">
-          <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-12 w-auto" />
+          <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-10 sm:h-12 w-auto" />
         </div>
-        <div className="relative w-24 h-24 mx-auto mb-4">
-          <Avatar className="w-24 h-24 border-4 border-background cursor-pointer pixel-border" onClick={handleProfilePictureClick}>
+        <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4">
+          <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background cursor-pointer pixel-border" onClick={handleProfilePictureClick}>
             {uploadingAvatar ? (
               <div className="h-full w-full flex items-center justify-center bg-muted/20">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
               </div>
             ) : (
               <>
                 <AvatarImage src={profile.avatar} alt={profile.name} />
-                <AvatarFallback className="text-2xl bg-primary text-white font-pixelated">
+                <AvatarFallback className="text-xl sm:text-2xl bg-primary text-white font-pixelated">
                   {profile.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </>
@@ -281,11 +288,11 @@ export function UserProfile() {
             <Button 
               size="icon" 
               variant="secondary" 
-              className="rounded-full w-8 h-8 bg-primary hover:bg-primary/90 text-white"
+              className="rounded-full w-6 h-6 sm:w-8 sm:h-8 bg-primary hover:bg-primary/90 text-white"
               onClick={handleProfilePictureClick}
               disabled={uploadingAvatar}
             >
-              <Camera className="h-4 w-4" />
+              <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
@@ -293,14 +300,14 @@ export function UserProfile() {
         {isEditing ? (
           <div className="space-y-3 mt-4">
             <div>
-              <Label htmlFor="name" className="font-pixelated">Name</Label>
+              <Label htmlFor="name" className="font-pixelated text-xs sm:text-sm">Name</Label>
               <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <User className="ml-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="name"
                   name="name"
                   placeholder="Your name" 
-                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
+                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated text-xs sm:text-sm" 
                   value={profile.name}
                   onChange={handleChange}
                 />
@@ -308,13 +315,13 @@ export function UserProfile() {
             </div>
             
             <div>
-              <Label htmlFor="bio" className="font-pixelated">Bio</Label>
+              <Label htmlFor="bio" className="font-pixelated text-xs sm:text-sm">Bio</Label>
               <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-primary mt-1">
                 <Input 
                   id="bio"
                   name="bio"
                   placeholder="Tell us about yourself" 
-                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated" 
+                  className="border-0 bg-transparent focus-visible:ring-0 font-pixelated text-xs sm:text-sm" 
                   value={profile.bio || ''}
                   onChange={handleChange}
                 />
@@ -322,12 +329,13 @@ export function UserProfile() {
             </div>
             
             <div className="flex justify-end space-x-2 pt-2">
-              <Button variant="outline" onClick={handleCancel} className="font-pixelated">
+              <Button variant="outline" onClick={handleCancel} className="font-pixelated text-xs" size="sm">
                 Cancel
               </Button>
               <Button 
-                className="bg-primary hover:bg-primary/90 text-white font-pixelated" 
+                className="bg-primary hover:bg-primary/90 text-white font-pixelated text-xs" 
                 onClick={handleSave}
+                size="sm"
               >
                 Save
               </Button>
@@ -335,70 +343,79 @@ export function UserProfile() {
           </div>
         ) : (
           <>
-            <CardTitle className="text-xl font-pixelated flex items-center justify-center gap-2">
+            <CardTitle className="text-lg sm:text-xl font-pixelated flex items-center justify-center gap-2">
               {profile.name}
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleEdit}>
-                <Edit2 className="h-3.5 w-3.5" />
+              <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6" onClick={handleEdit}>
+                <Edit2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               </Button>
             </CardTitle>
-            <div className="text-sm text-muted-foreground font-pixelated">@{profile.username}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground font-pixelated">@{profile.username}</div>
             
             {profile.bio && (
-              <p className="mt-2 text-sm font-pixelated">{profile.bio}</p>
+              <p className="mt-2 text-xs sm:text-sm font-pixelated">{profile.bio}</p>
             )}
           </>
         )}
       </CardHeader>
       
-      <CardContent className="pt-4">
+      <CardContent className="pt-4 px-4 sm:px-6">
         <Separator className="my-4" />
         
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
-            <p className="text-2xl font-semibold font-pixelated">{profile.friendCount}</p>
-            <p className="text-sm text-muted-foreground font-pixelated">Friends</p>
+            <p className="text-xl sm:text-2xl font-semibold font-pixelated">{profile.friendCount}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground font-pixelated">Friends</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold font-pixelated">{profile.postCount}</p>
-            <p className="text-sm text-muted-foreground font-pixelated">Posts</p>
+            <p className="text-xl sm:text-2xl font-semibold font-pixelated">{profile.postCount}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground font-pixelated">Posts</p>
           </div>
         </div>
         
         <Separator className="my-4" />
         
         <div className="space-y-2">
-          <div className="flex items-center text-sm">
-            <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span className="font-pixelated text-xs">{profile.email}</span>
+          <div className="flex items-center text-xs sm:text-sm">
+            <Mail className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <span className="font-pixelated text-xs overflow-hidden text-ellipsis">{profile.email}</span>
           </div>
-          <div className="flex items-center text-sm">
-            <AtSign className="mr-2 h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center text-xs sm:text-sm">
+            <AtSign className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
             <span className="font-pixelated text-xs">@{profile.username}</span>
           </div>
         </div>
         
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex justify-center flex-col gap-3">
+          <Button 
+            variant="default" 
+            onClick={openSupportChat}
+            className="support-button w-full text-xs sm:text-sm"
+          >
+            <MessageSquare className="mr-2 h-4 w-4" /> Contact Support <ExternalLink className="h-3 w-3 ml-1" />
+          </Button>
+          
           <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="font-pixelated">
-                <Trash className="mr-2 h-4 w-4" /> Delete Account
+              <Button variant="destructive" size="sm" className="font-pixelated text-xs sm:text-sm">
+                <Trash className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Delete Account
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-[90vw] sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-pixelated">Delete Your Account?</DialogTitle>
-                <DialogDescription className="font-pixelated">
+                <DialogTitle className="font-pixelated text-sm sm:text-base">Delete Your Account?</DialogTitle>
+                <DialogDescription className="font-pixelated text-xs sm:text-sm">
                   This action cannot be undone. All your data will be permanently deleted.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="font-pixelated">
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="font-pixelated text-xs sm:text-sm" size="sm">
                   Cancel
                 </Button>
                 <Button 
                   variant="destructive"
-                  className="font-pixelated"
+                  className="font-pixelated text-xs sm:text-sm"
                   onClick={deleteAccount}
+                  size="sm"
                 >
                   Delete Forever
                 </Button>
@@ -409,8 +426,8 @@ export function UserProfile() {
         
         <div className="mt-8 text-center text-xs text-muted-foreground font-pixelated">
           <div className="flex items-center justify-center space-x-1">
-            <span>Developed by Mohammed Maaz A</span>
-            <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat" className="h-4 w-auto" />
+            <span className="text-[10px] sm:text-xs">Developed by Mohammed Maaz A</span>
+            <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat" className="h-3 sm:h-4 w-auto" />
           </div>
         </div>
       </CardContent>
