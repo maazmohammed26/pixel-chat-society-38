@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export function useNotifications() {
@@ -22,14 +22,14 @@ export function useNotifications() {
     }
   }, []);
 
-  const sendNotification = (title: string, options?: NotificationOptions) => {
+  const sendNotification = useCallback((title: string, options?: NotificationOptions) => {
     if (isGranted && 'Notification' in window) {
       return new Notification(title, options);
     }
     return null;
-  };
+  }, [isGranted]);
 
-  const setupMessageNotifications = (userId: string) => {
+  const setupMessageNotifications = useCallback((userId: string) => {
     return supabase
       .channel('messages-notifications')
       .on('postgres_changes', 
@@ -60,7 +60,7 @@ export function useNotifications() {
         }
       )
       .subscribe();
-  };
+  }, [sendNotification]);
 
   return { isGranted, sendNotification, setupMessageNotifications };
 }

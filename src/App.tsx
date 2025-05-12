@@ -7,7 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
-import { toast } from "@/components/ui/sonner";
 import { useNotifications } from "@/hooks/use-notifications";
 
 // Pages
@@ -30,6 +29,7 @@ const queryClient = new QueryClient();
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const { setupMessageNotifications } = useNotifications();
   
   // Set favicon
   useEffect(() => {
@@ -40,12 +40,11 @@ const App = () => {
     
     document.title = "SocialChat";
     
+    // Set up message notifications when session changes and user is authenticated
     if (session) {
-      // Set up notification listeners
-      const { setupMessageNotifications } = useNotifications();
       setupMessageNotifications(session.user.id);
     }
-  }, [session]);
+  }, [session, setupMessageNotifications]);
   
   useEffect(() => {
     // Set up the auth state listener first
