@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, MessageSquare, User, X, ArrowLeft, Trash } from 'lucide-react';
+import { Send, MessageSquare, User, X, ArrowLeft, Trash, Video, Phone, Volume2, VolumeX } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +47,13 @@ export function Messages() {
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mobileView, setMobileView] = useState(window.innerWidth <= 640);
+  const [isVideoCallActive, setIsVideoCallActive] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'connected' | 'ended'>('idle');
+  const [isMuted, setIsMuted] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const [showCallDialog, setShowCallDialog] = useState(false);
   const navigate = useNavigate();
 
   // Monitor network status and screen size
@@ -363,6 +369,92 @@ export function Messages() {
     }
   };
 
+  const startVideoCall = async () => {
+    try {
+      if (!selectedFriend) return;
+      setShowCallDialog(true);
+      
+      // Get user media (camera and microphone)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      setLocalStream(stream);
+      
+      // Display local video stream
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      
+      setCallStatus('calling');
+      
+      // In a real implementation, we would initiate WebRTC connection here
+      // For this demo, we'll simulate the connection after a delay
+      
+      setTimeout(() => {
+        // Simulate connecting
+        setCallStatus('connected');
+        
+        // In a real app, this would be the remote stream from WebRTC
+        if (remoteVideoRef.current) {
+          // For demo purposes, we'll just display our own stream
+          // In a real app, this would be replaced with the peer connection's remote stream
+          remoteVideoRef.current.srcObject = stream;
+        }
+      }, 2000);
+      
+      toast({
+        title: "Video call started",
+        description: `Calling ${selectedFriend.name}...`,
+      });
+      
+    } catch (error) {
+      console.error('Error starting video call:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not access camera or microphone'
+      });
+      endCall();
+    }
+  };
+  
+  const endCall = () => {
+    // Stop all tracks in the local stream
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        track.stop();
+      });
+      setLocalStream(null);
+    }
+    
+    // Reset video elements
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    
+    // Reset call state
+    setCallStatus('idle');
+    setIsVideoCallActive(false);
+    setIsMuted(false);
+    setShowCallDialog(false);
+  };
+  
+  const toggleMute = () => {
+    if (localStream) {
+      const audioTracks = localStream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(!isMuted);
+    }
+  };
+
   useEffect(() => {
     // Only fetch friends once to prevent looping
     fetchFriends();
@@ -611,6 +703,29 @@ export function Messages() {
                       <p className="text-xs text-muted-foreground">@{selectedFriend.username || 'guest'}</p>
                     </div>
                   </div>
+                  {/* Add call buttons */}
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-muted-foreground hover:text-primary"
+                      onClick={() => toast({
+                        title: "Coming Soon",
+                        description: "Voice calls will be available soon!",
+                      })}
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-muted-foreground hover:text-primary"
+                      onClick={startVideoCall}
+                      disabled={isVideoCallActive || callStatus !== 'idle'}
+                    >
+                      <Video className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 {/* Messages */}
@@ -717,6 +832,69 @@ export function Messages() {
             >
               Delete Forever
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Call Dialog */}
+      <Dialog open={showCallDialog} onOpenChange={(open) => {
+        if (!open) endCall();
+        setShowCallDialog(open);
+      }}>
+        <DialogContent className="sm:max-w-[80%] md:max-w-[600px] p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="font-pixelated flex items-center">
+              <Video className="h-5 w-5 mr-2" />
+              Video Call {callStatus === 'calling' ? '(Connecting...)' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative h-[400px] bg-black">
+            {/* Remote video (full size) */}
+            <video 
+              ref={remoteVideoRef} 
+              className="w-full h-full object-cover" 
+              autoPlay 
+              playsInline
+            />
+            
+            {/* Local video (picture-in-picture) */}
+            <div className="absolute bottom-4 right-4 w-1/4 h-1/4 border-2 border-white rounded overflow-hidden pixel-shadow">
+              <video 
+                ref={localVideoRef} 
+                className="w-full h-full object-cover" 
+                autoPlay 
+                playsInline 
+                muted
+              />
+            </div>
+          </div>
+          
+          {/* Call controls */}
+          <DialogFooter className="p-4 border-t">
+            <div className="flex justify-center w-full gap-4">
+              <Button 
+                variant="outline" 
+                size="icon"
+                className={`rounded-full ${isMuted ? 'bg-red-100 text-red-500' : ''}`}
+                onClick={toggleMute}
+              >
+                {isMuted ? (
+                  <VolumeX className="h-5 w-5" />
+                ) : (
+                  <Volume2 className="h-5 w-5" />
+                )}
+              </Button>
+              
+              <Button 
+                variant="destructive" 
+                size="icon"
+                className="rounded-full"
+                onClick={endCall}
+              >
+                <Phone className="h-5 w-5 rotate-135" />
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

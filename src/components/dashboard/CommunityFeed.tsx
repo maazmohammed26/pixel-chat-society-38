@@ -1,10 +1,9 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Heart, MessageCircle, Share, Send, ChevronDown, ChevronUp, Image, Trash, Edit, CheckCircle, X } from 'lucide-react';
+import { Heart, MessageCircle, Share, Send, ChevronDown, ChevronUp, Image, Trash, Edit, CheckCircle, X, Video } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +38,7 @@ interface PostProps {
   liked?: boolean;
   showComments?: boolean;
   image_url?: string;
+  video_url?: string;
 }
 
 export function PostCard({ post, onAction }: { 
@@ -58,6 +58,7 @@ export function PostCard({ post, onAction }: {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const likeUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Check if current user is the post author
   useEffect(() => {
@@ -75,31 +76,43 @@ export function PostCard({ post, onAction }: {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      if (isLiked) {
-        // Unlike
-        await supabase
-          .from('likes')
-          .delete()
-          .match({ user_id: user.id, post_id: post.id });
-        
-        setLikeCount(prev => Math.max(0, prev - 1));
-      } else {
-        // Like
-        await supabase
-          .from('likes')
-          .insert({ user_id: user.id, post_id: post.id });
-        
-        setLikeCount(prev => prev + 1);
+      // Optimistic update for immediate UI feedback
+      const wasLiked = isLiked;
+      const prevCount = likeCount;
+      
+      // Update UI immediately for better UX
+      setIsLiked(!wasLiked);
+      setLikeCount(prevCount + (wasLiked ? -1 : 1));
+      
+      // Clear any pending timeouts
+      if (likeUpdateTimeoutRef.current) {
+        clearTimeout(likeUpdateTimeoutRef.current);
       }
       
-      setIsLiked(!isLiked);
+      // Debounce actual API call
+      likeUpdateTimeoutRef.current = setTimeout(async () => {
+        try {
+          if (!wasLiked) {
+            // Like
+            await supabase
+              .from('likes')
+              .insert({ user_id: user.id, post_id: post.id });
+          } else {
+            // Unlike
+            await supabase
+              .from('likes')
+              .delete()
+              .match({ user_id: user.id, post_id: post.id });
+          }
+        } catch (error) {
+          // If API call fails, revert the UI changes
+          console.error('Error updating like:', error);
+          setIsLiked(wasLiked);
+          setLikeCount(prevCount);
+        }
+      }, 300); // Short delay to reduce API calls but still feel responsive
     } catch (error) {
       console.error('Error toggling like:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update like',
-      });
     }
   };
   
@@ -290,7 +303,7 @@ export function PostCard({ post, onAction }: {
   useEffect(() => {
     if (!post.id) return;
     
-    const channel = supabase
+    const commentChannel = supabase
       .channel(`post-${post.id}-comments`)
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${post.id}` },
@@ -307,9 +320,57 @@ export function PostCard({ post, onAction }: {
       .subscribe();
       
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(commentChannel);
     };
   }, [post.id, comments]);
+
+  // Set up real-time updates for likes on this specific post
+  useEffect(() => {
+    if (!post.id) return;
+    
+    const likesChannel = supabase
+      .channel(`post-${post.id}-likes`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'likes', filter: `post_id=eq.${post.id}` },
+        async () => {
+          // Get the current like count without full post refetch
+          const { count: newCount } = await supabase
+            .from('likes')
+            .select('id', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+          
+          // Get current user's like status
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: userLike } = await supabase
+              .from('likes')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', user.id)
+              .maybeSingle();
+              
+            // Only update if different from current state to avoid UI flicker
+            if (typeof newCount === 'number' && newCount !== likeCount) {
+              setLikeCount(newCount);
+            }
+            
+            const hasLiked = !!userLike;
+            if (hasLiked !== isLiked) {
+              setIsLiked(hasLiked);
+            }
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(likesChannel);
+      // Clear any pending timeouts on unmount
+      if (likeUpdateTimeoutRef.current) {
+        clearTimeout(likeUpdateTimeoutRef.current);
+      }
+    };
+  }, [post.id, likeCount, isLiked]);
 
   // Format the timestamp
   const timestamp = post.created_at ? 
@@ -397,6 +458,18 @@ export function PostCard({ post, onAction }: {
                   alt="Post attachment" 
                   className="rounded-md max-h-96 w-auto object-contain pixel-border"
                   loading="lazy" 
+                />
+              </div>
+            )}
+            {post.video_url && (
+              <div className="mt-4">
+                <video 
+                  src={post.video_url} 
+                  alt="Post attachment" 
+                  className="rounded-md max-h-96 w-auto object-contain pixel-border"
+                  controls
+                  muted
+                  loop
                 />
               </div>
             )}
@@ -537,47 +610,105 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
   const [content, setContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [image, setImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [video, setVideo] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{ type: 'image' | 'video', url: string } | null>(null);
+  const [isVideMuted, setIsVideoMuted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   
-  // Handle image selection
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle media selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Check file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        variant: 'destructive',
-        title: 'File too large',
-        description: 'Image must be less than 5MB'
-      });
-      return;
+    // Reset other media type
+    if (type === 'image') {
+      setVideo(null);
+      
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Image must be less than 5MB'
+        });
+        return;
+      }
+      
+      setImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview({ type: 'image', url: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    } else if (type === 'video') {
+      setImage(null);
+      
+      // Check file size (10MB limit) and duration
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Video must be less than 10MB'
+        });
+        return;
+      }
+      
+      setVideo(file);
+      
+      // Create preview
+      const URL = window.URL || window.webkitURL;
+      const videoUrl = URL.createObjectURL(file);
+      setMediaPreview({ type: 'video', url: videoUrl });
+      
+      // Check video duration
+      const videoEl = document.createElement('video');
+      videoEl.src = videoUrl;
+      videoEl.onloadedmetadata = () => {
+        if (videoEl.duration > 15) {
+          toast({
+            variant: 'destructive',
+            title: 'Video too long',
+            description: 'Videos must be 15 seconds or less'
+          });
+          setVideo(null);
+          setMediaPreview(null);
+          if (videoInputRef.current) {
+            videoInputRef.current.value = '';
+          }
+        }
+      };
     }
-    
-    setImage(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
   
-  // Handle removing the image
-  const removeImage = () => {
+  // Handle removing media
+  const removeMedia = () => {
     setImage(null);
-    setPreview(null);
+    setVideo(null);
+    setMediaPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
+    }
+  };
+  
+  // Toggle video mute
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsVideMuted(!isVideMuted);
     }
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && !image) return;
+    if (!content.trim() && !image && !video) return;
     
     setIsPosting(true);
     
@@ -594,10 +725,13 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
       }
       
       let imageUrl = null;
+      let videoUrl = null;
       
-      // If we have an image, convert it to base64 for storage
-      if (image && preview) {
-        imageUrl = preview;
+      // If we have media, convert it to base64 for storage
+      if (image && mediaPreview?.type === 'image') {
+        imageUrl = mediaPreview.url;
+      } else if (video && mediaPreview?.type === 'video') {
+        videoUrl = mediaPreview.url;
       }
       
       // Insert the post
@@ -607,7 +741,8 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
           { 
             user_id: user.id, 
             content,
-            image_url: imageUrl 
+            image_url: imageUrl,
+            video_url: videoUrl
           }
         ]);
       
@@ -618,7 +753,8 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
       
       setContent('');
       setImage(null);
-      setPreview(null);
+      setVideo(null);
+      setMediaPreview(null);
       
       // Callback to refresh posts
       if (onPostCreated) {
@@ -647,51 +783,93 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
             onChange={(e) => setContent(e.target.value)}
           />
           
-          {/* Image preview */}
-          {preview && (
+          {/* Media preview */}
+          {mediaPreview && (
             <div className="mt-4 relative">
-              <img 
-                src={preview} 
-                alt="Preview" 
-                className="rounded-md max-h-60 w-auto object-contain pixel-border"
-              />
+              {mediaPreview.type === 'image' ? (
+                <img 
+                  src={mediaPreview.url} 
+                  alt="Preview" 
+                  className="rounded-md max-h-60 w-auto object-contain pixel-border"
+                />
+              ) : (
+                <div className="relative">
+                  <video 
+                    ref={videoRef}
+                    src={mediaPreview.url} 
+                    className="rounded-md max-h-60 w-auto object-contain pixel-border"
+                    controls
+                    muted={isVideMuted}
+                    loop
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="absolute bottom-2 left-2 bg-background opacity-90 text-xs"
+                    onClick={toggleMute}
+                  >
+                    {isVideMuted ? "Unmute" : "Mute"}
+                  </Button>
+                </div>
+              )}
               <Button
                 type="button"
                 variant="destructive"
                 size="icon"
                 className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-90"
-                onClick={removeImage}
+                onClick={removeMedia}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           )}
           
-          {/* Hidden file input */}
+          {/* Hidden file inputs */}
           <input 
             type="file"
             ref={fileInputRef} 
             accept="image/*"
             className="hidden"
-            onChange={handleImageChange}
+            onChange={(e) => handleFileChange(e, 'image')}
+          />
+          <input 
+            type="file"
+            ref={videoInputRef} 
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => handleFileChange(e, 'video')}
           />
         </CardContent>
         <CardFooter className="flex justify-between border-t px-6 py-4 bg-muted/10">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPosting}
-            className="font-pixelated"
-          >
-            <Image className="h-4 w-4 mr-2" />
-            Add Image
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isPosting || !!video}
+              className="font-pixelated"
+            >
+              <Image className="h-4 w-4 mr-2" />
+              Add Image
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => videoInputRef.current?.click()}
+              disabled={isPosting || !!image}
+              className="font-pixelated"
+            >
+              <Video className="h-4 w-4 mr-2" />
+              Add Video (15s)
+            </Button>
+          </div>
           <Button 
             type="submit" 
             className="px-6 bg-gradient-to-r from-social-blue to-social-magenta hover:opacity-90 text-white font-pixelated"
-            disabled={(!content.trim() && !image) || isPosting}
+            disabled={(!content.trim() && !image && !video) || isPosting}
           >
             {isPosting ? 'Posting...' : 'Post'}
           </Button>
@@ -705,8 +883,9 @@ export function CommunityFeed() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<PostProps[]>([]);
   const { toast } = useToast();
+  const postsRef = useRef<PostProps[]>([]);
   
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async (showToast = false) => {
     try {
       setLoading(true);
       
@@ -719,6 +898,7 @@ export function CommunityFeed() {
           content,
           created_at,
           image_url,
+          video_url,
           author:user_id (id, name, username, avatar)
         `)
         .order('created_at', { ascending: false });
@@ -728,7 +908,7 @@ export function CommunityFeed() {
         throw error;
       }
       
-      // Get likes count for each post
+      // Get likes count and user's like status for each post
       const postsWithLikes = await Promise.all(postsData.map(async (post) => {
         // Count likes
         const { count: likesCount } = await supabase
@@ -761,6 +941,7 @@ export function CommunityFeed() {
           content: post.content,
           created_at: post.created_at,
           image_url: post.image_url,
+          video_url: post.video_url,
           author: {
             id: post.author?.id || 'unknown',
             name: post.author?.name || 'User',
@@ -773,7 +954,18 @@ export function CommunityFeed() {
         };
       }));
       
-      setPosts(postsWithLikes);
+      // Use this approach to avoid unnecessary re-renders when data hasn't changed
+      if (JSON.stringify(postsWithLikes) !== JSON.stringify(postsRef.current)) {
+        setPosts(postsWithLikes);
+        postsRef.current = postsWithLikes;
+        
+        if (showToast) {
+          toast({
+            title: "Feed updated",
+            description: "New posts have been loaded",
+          });
+        }
+      }
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
@@ -784,7 +976,7 @@ export function CommunityFeed() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
   
   useEffect(() => {
     fetchPosts();
@@ -794,32 +986,37 @@ export function CommunityFeed() {
       .channel('public:posts-changes')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'posts' }, 
-        () => {
+        (payload) => {
+          // When a new post is created, add it to the list without full refetch
+          const newPost = payload.new as any;
           fetchPosts();
         }
       )
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'posts' },
-        () => {
-          fetchPosts();
+        (payload) => {
+          // When a post is updated, find it and update it
+          const updatedPost = payload.new as any;
+          setPosts(prevPosts => 
+            prevPosts.map(post => 
+              post.id === updatedPost.id ? {
+                ...post,
+                content: updatedPost.content,
+                image_url: updatedPost.image_url,
+                video_url: updatedPost.video_url,
+              } : post
+            )
+          );
         }
       )
       .on('postgres_changes', 
         { event: 'DELETE', schema: 'public', table: 'posts' },
-        () => {
-          fetchPosts();
-        }
-      )
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'comments' }, 
-        () => {
-          // We handle comment updates in the PostCard component
-        }
-      )
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'likes' }, 
-        () => {
-          fetchPosts();
+        (payload) => {
+          // When a post is deleted, remove it from the list
+          const deletedId = (payload.old as any).id;
+          setPosts(prevPosts => 
+            prevPosts.filter(post => post.id !== deletedId)
+          );
         }
       )
       .subscribe();
@@ -827,7 +1024,7 @@ export function CommunityFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchPosts]);
 
   return (
     <div className="animate-fade-in">
