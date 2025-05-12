@@ -1,6 +1,18 @@
-import React from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, User, Camera, Edit2, Mail, AtSign, MessageSquare, Trash } from "lucide-react";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { getUserProfile, updateUserProfile } from "@/utils/authUtils";
 
 export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false);
