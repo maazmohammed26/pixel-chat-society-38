@@ -90,7 +90,6 @@ export function useNotifications() {
                 body: payload.new.content.substring(0, 60) + (payload.new.content.length > 60 ? '...' : ''),
                 icon: '/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png',
                 tag: 'message',
-                renotify: true,
                 requireInteraction: true,
               });
             }
@@ -127,7 +126,6 @@ export function useNotifications() {
                 body: `${senderData.name} sent you a friend request`,
                 icon: '/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png',
                 tag: 'friend-request',
-                renotify: true
               });
             }
           } catch (error) {

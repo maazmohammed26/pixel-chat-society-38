@@ -59,6 +59,7 @@ export default {
           "light-green": "hsl(var(--social-light-green))",
           "magenta": "hsl(var(--social-magenta))",
           "purple": "hsl(var(--social-purple))",
+          "blue": "hsl(var(--social-blue))", // Added social-blue color
           "green": "hsl(var(--social-green))",
         },
       },
