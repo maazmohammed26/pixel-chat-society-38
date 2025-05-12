@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -465,7 +466,6 @@ export function PostCard({ post, onAction }: {
               <div className="mt-4">
                 <video 
                   src={post.video_url} 
-                  alt="Post attachment" 
                   className="rounded-md max-h-96 w-auto object-contain pixel-border"
                   controls
                   muted
@@ -612,7 +612,7 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
   const [image, setImage] = useState<File | null>(null);
   const [video, setVideo] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<{ type: 'image' | 'video', url: string } | null>(null);
-  const [isVideMuted, setIsVideoMuted] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -702,7 +702,7 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
   const toggleMute = () => {
     if (videoRef.current) {
       videoRef.current.muted = !videoRef.current.muted;
-      setIsVideMuted(!isVideMuted);
+      setIsVideoMuted(!isVideoMuted);
     }
   };
   
@@ -799,7 +799,7 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
                     src={mediaPreview.url} 
                     className="rounded-md max-h-60 w-auto object-contain pixel-border"
                     controls
-                    muted={isVideMuted}
+                    muted={isVideoMuted}
                     loop
                   />
                   <Button
@@ -809,7 +809,7 @@ export function PostForm({ onPostCreated }: { onPostCreated?: () => void }) {
                     className="absolute bottom-2 left-2 bg-background opacity-90 text-xs"
                     onClick={toggleMute}
                   >
-                    {isVideMuted ? "Unmute" : "Mute"}
+                    {isVideoMuted ? "Unmute" : "Mute"}
                   </Button>
                 </div>
               )}
@@ -909,7 +909,7 @@ export function CommunityFeed() {
       }
       
       // Get likes count and user's like status for each post
-      const postsWithLikes = await Promise.all(postsData.map(async (post) => {
+      const postsWithLikes = await Promise.all(postsData.map(async (post: any) => {
         // Count likes
         const { count: likesCount } = await supabase
           .from('likes')
@@ -988,7 +988,6 @@ export function CommunityFeed() {
         { event: 'INSERT', schema: 'public', table: 'posts' }, 
         (payload) => {
           // When a new post is created, add it to the list without full refetch
-          const newPost = payload.new as any;
           fetchPosts();
         }
       )

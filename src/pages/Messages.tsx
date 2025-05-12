@@ -1,17 +1,20 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, MessageSquare, User, X, ArrowLeft, Trash, Video, Phone, Volume2, VolumeX } from 'lucide-react';
-import { format } from 'date-fns';
+import { Send, MessageSquare, User, X, ArrowLeft, Trash, Video, Phone, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Friend {
   id: string;
@@ -34,6 +37,23 @@ interface Message {
   };
 }
 
+interface CallHistoryItem {
+  id: string;
+  caller_id: string;
+  receiver_id: string;
+  status: 'missed' | 'completed' | 'rejected';
+  duration: number | null;
+  created_at: string;
+  caller?: {
+    name: string;
+    avatar: string;
+  };
+  receiver?: {
+    name: string;
+    avatar: string;
+  };
+}
+
 export function Messages() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
@@ -42,6 +62,8 @@ export function Messages() {
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatar: string } | null>(null);
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
+  const [loadingCallHistory, setLoadingCallHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
@@ -49,8 +71,13 @@ export function Messages() {
   const [mobileView, setMobileView] = useState(window.innerWidth <= 640);
   const [isVideoCallActive, setIsVideoCallActive] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'connected' | 'ended'>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'receiving' | 'connected' | 'ended'>('idle');
   const [isMuted, setIsMuted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'messages' | 'calls'>('messages');
+  const [incomingCall, setIncomingCall] = useState<{
+    from: Friend,
+    callId: string
+  } | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [showCallDialog, setShowCallDialog] = useState(false);
@@ -214,6 +241,44 @@ export function Messages() {
     }
   };
 
+  const fetchCallHistory = async (friendId: string) => {
+    try {
+      setLoadingCallHistory(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get call history between current user and selected friend
+      const { data: callHistoryData, error } = await supabase
+        .from('call_history')
+        .select(`
+          id,
+          caller_id,
+          receiver_id,
+          status,
+          duration,
+          created_at,
+          caller:profiles!call_history_caller_id_fkey(name, avatar),
+          receiver:profiles!call_history_receiver_id_fkey(name, avatar)
+        `)
+        .or(`and(caller_id.eq.${user.id},receiver_id.eq.${friendId}),and(caller_id.eq.${friendId},receiver_id.eq.${user.id})`)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+
+      setCallHistory(callHistoryData);
+    } catch (error) {
+      console.error('Error fetching call history:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load call history'
+      });
+    } finally {
+      setLoadingCallHistory(false);
+    }
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedFriend || !currentUser) return;
     
@@ -312,6 +377,8 @@ export function Messages() {
   const handleSelectFriend = (friend: Friend) => {
     setSelectedFriend(friend);
     fetchMessages(friend.id);
+    fetchCallHistory(friend.id);
+    setActiveTab('messages');
     
     // For mobile, we need to add a class to hide the sidebar
     if (mobileView) {
@@ -370,8 +437,9 @@ export function Messages() {
   };
 
   const startVideoCall = async () => {
+    if (!selectedFriend || !currentUser) return;
+    
     try {
-      if (!selectedFriend) return;
       setShowCallDialog(true);
       
       // Get user media (camera and microphone)
@@ -389,23 +457,67 @@ export function Messages() {
       
       setCallStatus('calling');
       
-      // In a real implementation, we would initiate WebRTC connection here
-      // For this demo, we'll simulate the connection after a delay
-      
-      setTimeout(() => {
-        // Simulate connecting
-        setCallStatus('connected');
+      // Record the outgoing call
+      const { data: callData, error: callError } = await supabase
+        .from('call_history')
+        .insert({
+          caller_id: currentUser.id,
+          receiver_id: selectedFriend.id,
+          status: 'missed', // Initially set as missed, will update when answered
+          duration: null
+        })
+        .select('id')
+        .single();
         
-        // In a real app, this would be the remote stream from WebRTC
-        if (remoteVideoRef.current) {
-          // For demo purposes, we'll just display our own stream
-          // In a real app, this would be replaced with the peer connection's remote stream
-          remoteVideoRef.current.srcObject = stream;
+      if (callError) throw callError;
+      
+      // In a real app, we would initiate WebRTC connection here
+      // and notify the other user about the incoming call
+      
+      // For demo purposes, we'll simulate the connection after a delay
+      setTimeout(() => {
+        // Simulate connecting (50% chance of call being picked up)
+        const isAnswered = Math.random() > 0.5;
+        
+        if (isAnswered) {
+          setCallStatus('connected');
+          
+          // Update call history to 'completed'
+          supabase
+            .from('call_history')
+            .update({ 
+              status: 'completed',
+              duration: 60 // Demo: 60 seconds
+            })
+            .eq('id', callData.id);
+          
+          // In a real app, this would be the remote stream from WebRTC
+          if (remoteVideoRef.current) {
+            // For demo purposes, we'll just display a mock stream
+            // In a real app, this would be replaced with the peer connection's remote stream
+            remoteVideoRef.current.srcObject = stream;
+          }
+          
+          toast({
+            title: "Call connected",
+            description: `Connected with ${selectedFriend.name}`,
+          });
+        } else {
+          // Call wasn't answered
+          toast({
+            title: "Call missed",
+            description: `${selectedFriend.name} didn't answer the call`,
+            variant: "destructive",
+          });
+          
+          endCall();
+          
+          // No need to update call history as it's already set to 'missed'
         }
-      }, 2000);
+      }, 3000);
       
       toast({
-        title: "Video call started",
+        title: "Calling...",
         description: `Calling ${selectedFriend.name}...`,
       });
       
@@ -417,6 +529,65 @@ export function Messages() {
         description: 'Could not access camera or microphone'
       });
       endCall();
+    }
+  };
+  
+  const handleIncomingCall = async (accept: boolean) => {
+    if (!incomingCall) return;
+    
+    try {
+      if (accept) {
+        // Get user media (camera and microphone)
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        
+        setLocalStream(stream);
+        setShowCallDialog(true);
+        
+        // Display streams
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        
+        if (remoteVideoRef.current) {
+          // In a real app, this would be the remote stream
+          // For demo, we're using the same stream
+          remoteVideoRef.current.srcObject = stream;
+        }
+        
+        // Update call status in database
+        await supabase
+          .from('call_history')
+          .update({ 
+            status: 'completed',
+            duration: 120 // Demo value for duration
+          })
+          .eq('id', incomingCall.callId);
+          
+        setCallStatus('connected');
+      } else {
+        // Reject call
+        await supabase
+          .from('call_history')
+          .update({ status: 'rejected' })
+          .eq('id', incomingCall.callId);
+          
+        toast({
+          title: "Call rejected",
+          description: `You declined the call from ${incomingCall.from.name}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling incoming call:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not connect to call'
+      });
+    } finally {
+      setIncomingCall(null);
     }
   };
   
@@ -443,6 +614,11 @@ export function Messages() {
     setIsVideoCallActive(false);
     setIsMuted(false);
     setShowCallDialog(false);
+    
+    // If the call was connected, fetch the updated call history
+    if (callStatus === 'connected' && selectedFriend) {
+      fetchCallHistory(selectedFriend.id);
+    }
   };
   
   const toggleMute = () => {
@@ -539,6 +715,66 @@ export function Messages() {
       )
       .subscribe();
       
+    // Subscribe to call_history table to detect incoming calls
+    const callChannel = supabase
+      .channel('call-history-changes')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'call_history' }, 
+        async (payload) => {
+          const newCall = payload.new as any;
+          
+          // If we're the receiver of a new call
+          if (currentUser && newCall.receiver_id === currentUser.id && newCall.status === 'missed') {
+            // Get caller information
+            const { data: callerData } = await supabase
+              .from('profiles')
+              .select('id, name, username, avatar')
+              .eq('id', newCall.caller_id)
+              .single();
+              
+            if (callerData) {
+              // Show incoming call notification
+              const caller: Friend = {
+                id: callerData.id,
+                name: callerData.name || 'User',
+                username: callerData.username || 'guest',
+                avatar: callerData.avatar || ''
+              };
+              
+              setIncomingCall({
+                from: caller,
+                callId: newCall.id
+              });
+              
+              // Play sound effect
+              const audio = new Audio('/call-ringtone.mp3'); // Add a ringtone to your public directory
+              audio.loop = true;
+              audio.play().catch(e => console.log('Audio play failed:', e));
+              
+              // Auto-decline call after 30 seconds if no action is taken
+              setTimeout(() => {
+                setIncomingCall(prev => {
+                  if (prev && prev.callId === newCall.id) {
+                    audio.pause();
+                    handleIncomingCall(false);
+                    return null;
+                  }
+                  return prev;
+                });
+              }, 30000);
+            }
+          }
+          
+          // Update call history if we're looking at it currently
+          if (selectedFriend && 
+             ((newCall.caller_id === currentUser?.id && newCall.receiver_id === selectedFriend.id) || 
+              (newCall.caller_id === selectedFriend.id && newCall.receiver_id === currentUser?.id))) {
+            fetchCallHistory(selectedFriend.id);
+          }
+        }
+      )
+      .subscribe();
+      
     // Also subscribe to friends table changes
     const friendsChannel = supabase
       .channel('friends-status-changes')
@@ -585,14 +821,62 @@ export function Messages() {
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(friendsChannel);
+      supabase.removeChannel(callChannel);
     };
   }, [selectedFriend, currentUser, networkStatus]);
 
   useEffect(() => {
-    if (selectedFriend) {
+    if (selectedFriend && activeTab === 'messages') {
       fetchMessages(selectedFriend.id);
     }
-  }, [selectedFriend]);
+    
+    if (selectedFriend && activeTab === 'calls') {
+      fetchCallHistory(selectedFriend.id);
+    }
+  }, [selectedFriend, activeTab]);
+
+  const getCallStatusText = (status: string, isCurrentUserCaller: boolean) => {
+    switch (status) {
+      case 'completed':
+        return isCurrentUserCaller ? 'Outgoing call' : 'Incoming call';
+      case 'missed':
+        return isCurrentUserCaller ? 'Call not answered' : 'Missed call';
+      case 'rejected':
+        return isCurrentUserCaller ? 'Call declined' : 'Declined call';
+      default:
+        return 'Call';
+    }
+  };
+
+  const getCallStatusIcon = (status: string, isCurrentUserCaller: boolean) => {
+    if (status === 'completed') {
+      return isCurrentUserCaller ? (
+        <Phone className="h-4 w-4" />
+      ) : (
+        <Phone className="h-4 w-4 rotate-90" />
+      );
+    } else if (status === 'missed' || status === 'rejected') {
+      return isCurrentUserCaller ? (
+        <Phone className="h-4 w-4 text-amber-500" />
+      ) : (
+        <Phone className="h-4 w-4 text-red-500 rotate-90" />
+      );
+    }
+    return <Phone className="h-4 w-4" />;
+  };
+
+  const formatCallDuration = (seconds: number | null) => {
+    if (!seconds) return '';
+    
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    
+    if (mins === 0) {
+      return `${secs}s`;
+    }
+    
+    return `${mins}m ${secs}s`;
+  };
 
   return (
     <DashboardLayout>
@@ -708,13 +992,12 @@ export function Messages() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-muted-foreground hover:text-primary"
-                      onClick={() => toast({
-                        title: "Coming Soon",
-                        description: "Voice calls will be available soon!",
-                      })}
+                      className="text-muted-foreground hover:text-primary relative"
                     >
                       <Phone className="h-4 w-4" />
+                      <Badge className="absolute -top-1 -right-1 px-1 text-[8px] h-4 pointer-events-none font-pixelated" variant="outline">
+                        Soon
+                      </Badge>
                     </Button>
                     <Button 
                       variant="ghost" 
@@ -728,76 +1011,172 @@ export function Messages() {
                   </div>
                 </div>
                 
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
-                  {messages.length > 0 ? (
-                    <div className="space-y-4">
-                      {messages.map((message) => (
-                        <div 
-                          key={message.id}
-                          className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
-                        >
-                          <div className={`flex gap-2 max-w-[80%] ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}>
-                            <Avatar className="h-8 w-8">
-                              {message.sender?.avatar ? (
-                                <AvatarImage src={message.sender.avatar} />
-                              ) : (
-                                <AvatarFallback className="bg-primary text-white font-pixelated">
-                                  {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                            <div className={`${message.sender_id === currentUser?.id ? 'message-bubble-sent' : 'message-bubble-received'} ${(message as any).pending ? 'opacity-70' : ''} font-pixelated text-xs`}>
-                              <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                              <div className="flex items-center justify-between mt-1">
-                                <p className="text-xs opacity-70">
-                                  {format(new Date(message.created_at), 'HH:mm')}
-                                </p>
-                                {(message as any).pending && (
-                                  <span className="text-xs ml-2">Pending...</span>
-                                )}
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => setActiveTab(v as 'messages' | 'calls')}
+                  className="w-full flex-1 flex flex-col"
+                >
+                  <div className="px-4 pt-1 border-b">
+                    <TabsList className="nav-tabs">
+                      <TabsTrigger value="messages" className="nav-tab font-pixelated text-xs">Messages</TabsTrigger>
+                      <TabsTrigger value="calls" className="nav-tab font-pixelated text-xs">Call History</TabsTrigger>
+                    </TabsList>
+                  </div>
+                  
+                  <TabsContent value="messages" className="flex-1 flex flex-col overflow-hidden mt-0 p-0">
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
+                      {messages.length > 0 ? (
+                        <div className="space-y-4">
+                          {messages.map((message) => (
+                            <div 
+                              key={message.id}
+                              className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                            >
+                              <div className={`flex gap-2 max-w-[80%] ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}>
+                                <Avatar className="h-8 w-8">
+                                  {message.sender?.avatar ? (
+                                    <AvatarImage src={message.sender.avatar} />
+                                  ) : (
+                                    <AvatarFallback className="bg-primary text-white font-pixelated">
+                                      {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <div className={`${message.sender_id === currentUser?.id ? 'message-bubble-sent' : 'message-bubble-received'} ${(message as any).pending ? 'opacity-70' : ''} font-pixelated text-xs`}>
+                                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                                  <div className="flex items-center justify-between mt-1">
+                                    <p className="text-xs opacity-70">
+                                      {format(new Date(message.created_at), 'HH:mm')}
+                                    </p>
+                                    {(message as any).pending && (
+                                      <span className="text-xs ml-2">Pending...</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center">
+                          <p className="text-muted-foreground font-pixelated">Start the conversation!</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Message input */}
+                    <div className="p-4 border-t">
+                      {networkStatus === 'offline' && (
+                        <Alert className="mb-2 bg-amber-50 text-amber-800 border-amber-200">
+                          <AlertDescription className="flex items-center">
+                            <div className="h-2 w-2 bg-amber-500 rounded-full mr-2"></div>
+                            You're offline. Messages will be sent when you reconnect.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <div className="flex gap-2">
+                        <Textarea 
+                          placeholder="Type a message..." 
+                          className="flex-1 min-h-[60px] max-h-[120px] focus-visible:ring-primary font-pixelated text-sm"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          disabled={sendingMessage}
+                        />
+                        <Button 
+                          className="self-end bg-primary hover:bg-primary/90 text-white font-pixelated"
+                          onClick={sendMessage}
+                          disabled={!newMessage.trim() || sendingMessage}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="calls" className="flex-1 overflow-hidden mt-0 p-0">
+                    <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
+                      {loadingCallHistory ? (
+                        <div className="space-y-3 p-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex items-center gap-3 animate-pulse">
+                              <Skeleton className="h-10 w-10 rounded-full" />
+                              <div className="flex-1">
+                                <Skeleton className="h-5 w-32 mb-1" />
+                                <Skeleton className="h-4 w-24" />
+                              </div>
+                              <Skeleton className="h-8 w-16 rounded-full" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : callHistory.length > 0 ? (
+                        <div className="space-y-2">
+                          {callHistory.map((call) => {
+                            const isCurrentUserCaller = call.caller_id === currentUser?.id;
+                            const otherPerson = isCurrentUserCaller ? call.receiver : call.caller;
+                            
+                            return (
+                              <div key={call.id} className="flex items-center justify-between p-3 bg-background rounded-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    {otherPerson?.avatar ? (
+                                      <AvatarImage src={otherPerson.avatar} />
+                                    ) : (
+                                      <AvatarFallback className="bg-primary text-white font-pixelated">
+                                        {otherPerson?.name ? otherPerson.name.substring(0, 2).toUpperCase() : 'UN'}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium text-sm font-pixelated">{otherPerson?.name || 'Unknown'}</p>
+                                      {call.status === 'missed' && !isCurrentUserCaller && (
+                                        <span className="text-red-500">
+                                          <AlertCircle className="h-3 w-3" />
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground font-pixelated flex items-center gap-1">
+                                      {getCallStatusIcon(call.status, isCurrentUserCaller)}
+                                      {getCallStatusText(call.status, isCurrentUserCaller)}
+                                      {call.duration && (
+                                        <span className="ml-1">({formatCallDuration(call.duration)})</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground font-pixelated">
+                                  {format(new Date(call.created_at), 'MMM d, h:mm a')}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center">
+                          <div className="text-center">
+                            <Video className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-muted-foreground font-pixelated">No call history yet</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Start a video call with {selectedFriend.name}
+                            </p>
+                            <Button 
+                              variant="outline" 
+                              className="mt-4 font-pixelated"
+                              onClick={startVideoCall}
+                              disabled={callStatus !== 'idle'}
+                            >
+                              <Video className="h-4 w-4 mr-2" />
+                              Start Video Call
+                            </Button>
                           </div>
                         </div>
-                      ))}
-                      <div ref={messagesEndRef} />
+                      )}
                     </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <p className="text-muted-foreground font-pixelated">Start the conversation!</p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Message input */}
-                <div className="p-4 border-t">
-                  {networkStatus === 'offline' && (
-                    <Alert className="mb-2 bg-amber-50 text-amber-800 border-amber-200">
-                      <AlertDescription className="flex items-center">
-                        <div className="h-2 w-2 bg-amber-500 rounded-full mr-2"></div>
-                        You're offline. Messages will be sent when you reconnect.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <div className="flex gap-2">
-                    <Textarea 
-                      placeholder="Type a message..." 
-                      className="flex-1 min-h-[60px] max-h-[120px] focus-visible:ring-primary font-pixelated text-sm"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={sendingMessage}
-                    />
-                    <Button 
-                      className="self-end bg-primary hover:bg-primary/90 text-white font-pixelated"
-                      onClick={sendMessage}
-                      disabled={!newMessage.trim() || sendingMessage}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                  </TabsContent>
+                </Tabs>
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 animate-fade-in">
@@ -895,6 +1274,45 @@ export function Messages() {
                 <Phone className="h-5 w-5 rotate-135" />
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Incoming Call Dialog */}
+      <Dialog open={!!incomingCall} onOpenChange={(open) => {
+        if (!open) handleIncomingCall(false);
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="font-pixelated flex flex-col items-center gap-2">
+              <div className="animate-pulse">
+                <Phone className="h-10 w-10 text-green-500" />
+              </div>
+              <div className="text-center mt-2">
+                Incoming Call
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-center pt-4">
+              {incomingCall?.from.name} is calling you
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-4 mt-4">
+            <Button 
+              variant="destructive" 
+              size="lg"
+              className="rounded-full w-12 h-12 p-0"
+              onClick={() => handleIncomingCall(false)}
+            >
+              <Phone className="h-6 w-6 rotate-135" />
+            </Button>
+            <Button 
+              variant="default" 
+              size="lg"
+              className="rounded-full w-12 h-12 p-0 bg-green-500 hover:bg-green-600"
+              onClick={() => handleIncomingCall(true)}
+            >
+              <Video className="h-6 w-6" />
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

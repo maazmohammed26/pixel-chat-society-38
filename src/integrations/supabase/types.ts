@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      call_history: {
+        Row: {
+          caller_id: string
+          created_at: string
+          duration: number | null
+          id: string
+          receiver_id: string
+          status: string
+        }
+        Insert: {
+          caller_id: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          receiver_id: string
+          status: string
+        }
+        Update: {
+          caller_id?: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          receiver_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_history_caller_id_fkey"
+            columns: ["caller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_history_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
@@ -179,6 +221,7 @@ export type Database = {
           image_url: string | null
           updated_at: string
           user_id: string | null
+          video_url: string | null
         }
         Insert: {
           content: string
@@ -187,6 +230,7 @@ export type Database = {
           image_url?: string | null
           updated_at?: string
           user_id?: string | null
+          video_url?: string | null
         }
         Update: {
           content?: string
@@ -195,6 +239,7 @@ export type Database = {
           image_url?: string | null
           updated_at?: string
           user_id?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
