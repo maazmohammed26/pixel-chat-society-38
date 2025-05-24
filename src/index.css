@@ -98,7 +98,7 @@
 .font-pixelated {
   font-family: 'Press Start 2P', cursive;
   letter-spacing: -0.02em;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -116,10 +116,16 @@
 
 .message-bubble-sent {
   @apply bg-social-green text-white p-2 rounded-xl rounded-tr-none shadow-sm font-pixelated text-xs;
+  max-width: 80%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .message-bubble-received {
   @apply bg-gray-100 p-2 rounded-xl rounded-tl-none shadow-sm font-pixelated text-xs;
+  max-width: 80%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Navigation tabs */
@@ -129,7 +135,7 @@
 
 .nav-tab {
   @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-social-green data-[state=active]:text-social-green data-[state=active]:bg-transparent font-pixelated text-xs;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 /* Mobile optimizations - Fixed layout */
@@ -138,17 +144,18 @@
     position: fixed;
     height: 100vh;
     overflow: hidden;
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .font-pixelated {
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.3;
   }
   
   .message-bubble-sent, .message-bubble-received {
-    max-width: 85%;
-    font-size: 11px;
+    max-width: 75%;
+    font-size: 10px;
+    padding: 6px 8px;
   }
   
   /* Fixed mobile layout */
@@ -159,14 +166,14 @@
   }
   
   /* Mobile text scaling */
-  .text-4xl { font-size: 16px; line-height: 1.4; }
-  .text-3xl { font-size: 14px; line-height: 1.4; }
-  .text-2xl { font-size: 13px; line-height: 1.4; }
-  .text-xl { font-size: 12px; line-height: 1.3; }
-  .text-lg { font-size: 11px; line-height: 1.3; }
-  .text-base { font-size: 11px; line-height: 1.3; }
-  .text-sm { font-size: 10px; line-height: 1.3; }
-  .text-xs { font-size: 9px; line-height: 1.2; }
+  .text-4xl { font-size: 14px; line-height: 1.3; }
+  .text-3xl { font-size: 13px; line-height: 1.3; }
+  .text-2xl { font-size: 12px; line-height: 1.3; }
+  .text-xl { font-size: 11px; line-height: 1.3; }
+  .text-lg { font-size: 10px; line-height: 1.3; }
+  .text-base { font-size: 10px; line-height: 1.3; }
+  .text-sm { font-size: 9px; line-height: 1.2; }
+  .text-xs { font-size: 8px; line-height: 1.2; }
   
   /* Compact spacing */
   .p-6 { padding: 0.75rem; }
@@ -192,6 +199,22 @@
   .w-10.h-10 { width: 1.75rem; height: 1.75rem; }
   .w-8.h-8 { width: 1.5rem; height: 1.5rem; }
   .w-6.h-6 { width: 1.25rem; height: 1.25rem; }
+  
+  /* Fix overlapping text */
+  textarea, input {
+    font-size: 10px !important;
+    padding: 6px 8px !important;
+  }
+  
+  /* Ensure proper spacing for mobile cards */
+  .card {
+    margin-bottom: 8px !important;
+  }
+  
+  /* Navigation icon spacing */
+  nav a {
+    padding: 8px 4px !important;
+  }
 }
 
 /* Animations */
@@ -238,7 +261,7 @@
 /* Development banner */
 .dev-banner {
   @apply bg-yellow-100 text-yellow-800 p-1 text-center font-pixelated;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 /* Real-time indicators */
@@ -287,4 +310,29 @@
 textarea, input {
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+/* Perfect scrolling for all containers */
+.scroll-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar but keep functionality */
+.scroll-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }

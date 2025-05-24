@@ -80,8 +80,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Tabs>
             </div>
           )}
-          <main className={`p-3 sm:p-6 w-full ${isMobile ? 'pb-20 pt-28' : ''} overflow-x-hidden`}>
-            <div className="w-full max-w-full overflow-hidden">
+          <main className={`w-full ${isMobile ? 'pt-24 pb-20' : 'p-3 sm:p-6'} overflow-x-hidden`}>
+            <div className="w-full max-w-full overflow-hidden h-full">
               {children}
             </div>
           </main>

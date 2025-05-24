@@ -80,11 +80,11 @@ export function MobileHeader() {
   };
 
   const tabs: MobileTab[] = [
-    { path: '/dashboard', label: 'Home', icon: <Home className="h-4 w-4" /> },
-    { path: '/friends', label: 'Friends', icon: <Users className="h-4 w-4" /> },
-    { path: '/messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
-    { path: '/notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-    { path: '/profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
+    { path: '/dashboard', label: 'Home', icon: <Home className="h-5 w-5" /> },
+    { path: '/friends', label: 'Friends', icon: <Users className="h-5 w-5" /> },
+    { path: '/messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
+    { path: '/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
+    { path: '/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -197,14 +197,13 @@ export function MobileHeader() {
           <Link 
             key={tab.path} 
             to={tab.path} 
-            className={`flex flex-col items-center justify-center py-2 text-xs font-pixelated ${
+            className={`flex flex-col items-center justify-center py-2 font-pixelated ${
               isActive(tab.path) 
                 ? 'text-white bg-social-dark-green' 
                 : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             {tab.icon}
-            <span className="mt-1">{tab.label}</span>
           </Link>
         ))}
       </nav>

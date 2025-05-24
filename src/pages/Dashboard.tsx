@@ -2,10 +2,8 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CommunityFeed } from '@/components/dashboard/CommunityFeed';
-import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Info, X } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export function Dashboard() {
@@ -50,11 +48,11 @@ export function Dashboard() {
           </DialogContent>
         </Dialog>
         
-        <ScrollArea className="h-[calc(100vh-140px)]">
+        <div className="h-[calc(100vh-140px)] overflow-y-auto">
           <div className="pb-4">
             <CommunityFeed />
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </DashboardLayout>
   );
