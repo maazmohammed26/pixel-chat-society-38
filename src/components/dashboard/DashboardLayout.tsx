@@ -33,54 +33,49 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex flex-1 w-full">
         <div className="flex-1 w-full">
           {!isMobile && (
-            <div className="border-b sticky top-0 bg-background z-10 px-4 sm:px-6 pt-3 sm:pt-4">
-              <Tabs value={currentRoute} className="w-full mb-3 sm:mb-4">
+            <div className="border-b sticky top-0 bg-background z-10 px-2 pt-2">
+              <Tabs value={currentRoute} className="w-full mb-2">
                 <TabsList className="nav-tabs w-fit overflow-x-auto">
                   <TabsTrigger 
                     value="dashboard" 
                     onClick={() => navigate('/dashboard')}
-                    className={`nav-tab ${currentRoute === 'dashboard' ? 'active' : ''} text-xs sm:text-sm font-pixelated`}
+                    className={`nav-tab ${currentRoute === 'dashboard' ? 'active' : ''} font-pixelated p-2`}
                   >
-                    <Home className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Home
+                    <Home className="h-4 w-4" />
                   </TabsTrigger>
                   <TabsTrigger 
                     value="friends" 
                     onClick={() => navigate('/friends')}
-                    className={`nav-tab ${currentRoute === 'friends' ? 'active' : ''} text-xs sm:text-sm font-pixelated`}
+                    className={`nav-tab ${currentRoute === 'friends' ? 'active' : ''} font-pixelated p-2`}
                   >
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Friends
+                    <Users className="h-4 w-4" />
                   </TabsTrigger>
                   <TabsTrigger 
                     value="messages" 
                     onClick={() => navigate('/messages')}
-                    className={`nav-tab ${currentRoute === 'messages' ? 'active' : ''} text-xs sm:text-sm font-pixelated`}
+                    className={`nav-tab ${currentRoute === 'messages' ? 'active' : ''} font-pixelated p-2`}
                   >
-                    <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Messages
+                    <MessageSquare className="h-4 w-4" />
                   </TabsTrigger>
                   <TabsTrigger 
                     value="notifications" 
                     onClick={() => navigate('/notifications')}
-                    className={`nav-tab ${currentRoute === 'notifications' ? 'active' : ''} text-xs sm:text-sm font-pixelated`}
+                    className={`nav-tab ${currentRoute === 'notifications' ? 'active' : ''} font-pixelated p-2`}
                   >
-                    <Bell className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Notifications
+                    <Bell className="h-4 w-4" />
                   </TabsTrigger>
                   <TabsTrigger 
                     value="profile" 
                     onClick={() => navigate('/profile')}
-                    className={`nav-tab ${currentRoute === 'profile' ? 'active' : ''} text-xs sm:text-sm font-pixelated`}
+                    className={`nav-tab ${currentRoute === 'profile' ? 'active' : ''} font-pixelated p-2`}
                   >
-                    <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Profile
+                    <User className="h-4 w-4" />
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           )}
-          <main className={`w-full ${isMobile ? 'pt-24 pb-20' : 'p-3 sm:p-6'} overflow-x-hidden`}>
+          <main className={`w-full ${isMobile ? 'pt-16 pb-16' : 'p-2'} overflow-x-hidden`}>
             <div className="w-full max-w-full overflow-hidden h-full">
               {children}
             </div>
