@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 @tailwind base;
@@ -81,12 +82,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-pixelated;
     overflow-x: hidden;
     width: 100vw;
     max-width: 100%;
+    position: fixed;
+    height: 100vh;
   }
-  h1, h2, h3, h4, h5, h6, button, label, p {
+  h1, h2, h3, h4, h5, h6, button, label, p, span, div {
     @apply font-pixelated;
   }
 }
@@ -109,11 +112,11 @@
 }
 
 .message-bubble-sent {
-  @apply bg-social-green text-white p-3 rounded-xl rounded-tr-none shadow-sm;
+  @apply bg-social-green text-white p-2 rounded-xl rounded-tr-none shadow-sm font-pixelated;
 }
 
 .message-bubble-received {
-  @apply bg-gray-100 p-3 rounded-xl rounded-tl-none shadow-sm;
+  @apply bg-gray-100 p-2 rounded-xl rounded-tl-none shadow-sm font-pixelated;
 }
 
 /* Navigation tabs */
@@ -122,7 +125,7 @@
 }
 
 .nav-tab {
-  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-social-green data-[state=active]:text-social-green data-[state=active]:bg-transparent;
+  @apply text-muted-foreground border-b-2 border-transparent transition-all duration-200 data-[state=active]:border-social-green data-[state=active]:text-social-green data-[state=active]:bg-transparent font-pixelated;
 }
 
 /* Animations */
@@ -155,26 +158,23 @@
   animation: float 3s ease-in-out infinite;
 }
 
-/* Mobile optimizations */
+/* Mobile optimizations - Fixed layout */
 @media (max-width: 640px) {
+  body {
+    position: fixed;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
   .message-bubble-sent, .message-bubble-received {
-    max-width: 100%;
+    max-width: 85%;
   }
   
-  /* Fix mobile viewport height issues */
-  .h-\[calc\(100vh-180px\)\] {
-    height: calc(100vh - 180px);
-    max-height: -webkit-fill-available;
-  }
-  
-  /* Better touch feedback */
-  .cursor-pointer {
-    @apply active:opacity-70;
-  }
-  
-  /* Ensure bottom bar doesn't get pushed off screen */
-  .p-4.border-t {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  /* Fixed mobile layout */
+  .min-h-screen {
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
   }
   
   /* Hide sidebar when in chat mode */
@@ -221,6 +221,32 @@
     padding-left: 1rem;
     padding-right: 1rem;
     width: 100%;
+  }
+  
+  /* Scale down large text */
+  .text-4xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-3xl {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-2xl {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  
+  .text-xl {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  .text-lg {
+    font-size: 0.75rem;
+    line-height: 1rem;
   }
 }
 
@@ -271,96 +297,9 @@
   }
 }
 
-/* Improved mobile view */
-@media (max-width: 767px) {
-  .mobile-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-background border-t z-50;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  
-  .main-content {
-    padding-bottom: 80px; /* Space for mobile nav */
-    padding-top: 80px; /* Space for mobile header */
-  }
-  
-  .friends-list, .chats-list {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
-  }
-  
-  .message-container {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background-color: hsl(var(--background));
-    padding-top: 4rem;
-  }
-  
-  .full-height-mobile {
-    height: calc(100vh - 200px);
-  }
-  
-  /* Remove scroll bounce effect */
-  html, body {
-    overscroll-behavior: none;
-  }
-  
-  /* Fix content padding on mobile */
-  .container {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
-  
-  /* Adjust card content for small screens */
-  .card-content {
-    padding: 0.75rem;
-  }
-
-  /* Ensure buttons stay within viewport */
-  .btn-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  /* Scale down large text */
-  .text-4xl {
-    font-size: 1.5rem;
-    line-height: 2rem;
-  }
-  
-  .text-3xl {
-    font-size: 1.25rem;
-    line-height: 1.75rem;
-  }
-  
-  .text-2xl {
-    font-size: 1.125rem;
-    line-height: 1.75rem;
-  }
-  
-  /* Fix mobile header spacing */
-  .mobile-header {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-  }
-  
-  /* Adjust grid layouts for mobile */
-  .grid-cols-2 {
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-  }
-  
-  @media (min-width: 640px) {
-    .grid-cols-2 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-}
-
 /* Development banner */
 .dev-banner {
-  @apply bg-yellow-100 text-yellow-800 p-2 text-center text-sm w-full font-pixelated;
+  @apply bg-yellow-100 text-yellow-800 p-2 text-center text-xs w-full font-pixelated;
 }
 
 /* Support button */
@@ -384,4 +323,20 @@
 
 .support-button:hover {
   opacity: 0.9;
+}
+
+/* Scroll area improvements */
+.scroll-area-viewport {
+  height: 100%;
+}
+
+/* Fixed mobile header */
+@media (max-width: 640px) {
+  header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 50 !important;
+  }
 }
