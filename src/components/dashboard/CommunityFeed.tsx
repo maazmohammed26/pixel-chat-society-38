@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Heart, MessageCircle, Share, Send, Image, Video } from 'lucide-react';
+import { Heart, MessageCircle, Share, Send, Image, Video, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface CommentProps {
   id: string;
@@ -46,6 +46,7 @@ export function CommunityFeed() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,13 +95,11 @@ export function CommunityFeed() {
 
       const postsWithCounts = await Promise.all(
         (data || []).map(async (post: any) => {
-          // Get likes count
           const { count: likesCount } = await supabase
             .from('likes')
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
 
-          // Get comments
           const { data: comments } = await supabase
             .from('comments')
             .select(`
@@ -111,7 +110,6 @@ export function CommunityFeed() {
             `)
             .eq('post_id', post.id);
 
-          // Get profile data for comments
           const commentsWithProfiles = await Promise.all(
             (comments || []).map(async (comment: any) => {
               const { data: profile } = await supabase
@@ -179,7 +177,6 @@ export function CommunityFeed() {
 
       if (error) throw error;
 
-      // Add the new post to the beginning of the list
       const newPostData: PostProps = {
         id: data.id,
         content: data.content,
@@ -200,8 +197,8 @@ export function CommunityFeed() {
       setNewPost('');
 
       toast({
-        title: 'Post created!',
-        description: 'Your post has been shared with the community.',
+        title: 'Posted!',
+        description: 'Your post has been shared.',
       });
     } catch (error) {
       console.error('Error creating post:', error);
@@ -215,6 +212,34 @@ export function CommunityFeed() {
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!deletePostId) return;
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', deletePostId);
+
+      if (error) throw error;
+
+      setPosts(prev => prev.filter(post => post.id !== deletePostId));
+      setDeletePostId(null);
+
+      toast({
+        title: 'Deleted',
+        description: 'Post has been deleted.',
+      });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete post',
+      });
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -224,22 +249,22 @@ export function CommunityFeed() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-muted"></div>
+            <CardHeader className="pb-2 p-3">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full bg-muted"></div>
                 <div className="space-y-1">
-                  <div className="h-3 w-20 bg-muted rounded"></div>
                   <div className="h-2 w-16 bg-muted rounded"></div>
+                  <div className="h-2 w-12 bg-muted rounded"></div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 pt-0">
               <div className="space-y-2">
-                <div className="h-3 w-full bg-muted rounded"></div>
-                <div className="h-3 w-3/4 bg-muted rounded"></div>
+                <div className="h-2 w-full bg-muted rounded"></div>
+                <div className="h-2 w-3/4 bg-muted rounded"></div>
               </div>
             </CardContent>
           </Card>
@@ -249,12 +274,12 @@ export function CommunityFeed() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Create Post */}
       <Card className="card-gradient">
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            <Avatar className="h-8 w-8">
+        <CardContent className="p-3">
+          <div className="flex gap-2">
+            <Avatar className="h-6 w-6 flex-shrink-0">
               {currentUser?.avatar ? (
                 <AvatarImage src={currentUser.avatar} />
               ) : (
@@ -263,30 +288,30 @@ export function CommunityFeed() {
                 </AvatarFallback>
               )}
             </Avatar>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <Textarea
                 placeholder="What's on your mind?"
-                className="min-h-[60px] border-none bg-muted/30 resize-none focus-visible:ring-1 font-pixelated text-xs"
+                className="min-h-[50px] border-none bg-muted/30 resize-none focus-visible:ring-1 font-pixelated text-xs p-2"
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isSubmitting}
               />
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-8" disabled>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-6 px-2" disabled>
                     <Image className="h-3 w-3 mr-1" />
-                    Add Image
+                    Image
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-8" disabled>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-6 px-2" disabled>
                     <Video className="h-3 w-3 mr-1" />
-                    Add Video
+                    Video
                   </Button>
                 </div>
                 <Button 
                   onClick={handleSubmit}
                   disabled={!newPost.trim() || isSubmitting}
-                  className="bg-primary hover:bg-primary/90 text-white font-pixelated text-xs h-8"
+                  className="bg-primary hover:bg-primary/90 text-white font-pixelated text-xs h-6 px-3"
                 >
                   <Send className="h-3 w-3 mr-1" />
                   Post
@@ -299,7 +324,7 @@ export function CommunityFeed() {
 
       {/* Posts */}
       {posts.length === 0 ? (
-        <Card className="text-center py-8">
+        <Card className="text-center py-6">
           <CardContent>
             <p className="text-muted-foreground font-pixelated text-xs">No posts yet. Be the first to share something!</p>
           </CardContent>
@@ -307,9 +332,9 @@ export function CommunityFeed() {
       ) : (
         posts.map((post) => (
           <Card key={post.id} className="card-gradient">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+            <CardHeader className="pb-2 p-3">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-6 w-6">
                   {post.author.avatar ? (
                     <AvatarImage src={post.author.avatar} />
                   ) : (
@@ -318,43 +343,55 @@ export function CommunityFeed() {
                     </AvatarFallback>
                   )}
                 </Avatar>
-                <div>
-                  <p className="font-pixelated text-xs">{post.author.name}</p>
-                  <p className="text-xs text-muted-foreground font-pixelated">@{post.author.username}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-pixelated text-xs truncate">{post.author.name}</p>
+                  <p className="text-xs text-muted-foreground font-pixelated truncate">@{post.author.username}</p>
                 </div>
-                <p className="text-xs text-muted-foreground ml-auto font-pixelated">
-                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground font-pixelated whitespace-nowrap">
+                    {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                  </p>
+                  {currentUser?.id === post.author.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => setDeletePostId(post.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 p-3">
               <p className="whitespace-pre-wrap break-words font-pixelated text-xs leading-relaxed">{post.content}</p>
               {post.image_url && (
                 <img 
                   src={post.image_url} 
                   alt="Post image" 
-                  className="mt-3 rounded-lg max-w-full h-auto"
+                  className="mt-2 rounded-lg max-w-full h-auto"
                 />
               )}
               {post.video_url && (
                 <video 
                   src={post.video_url} 
                   controls 
-                  className="mt-3 rounded-lg max-w-full h-auto"
+                  className="mt-2 rounded-lg max-w-full h-auto"
                 />
               )}
             </CardContent>
-            <CardFooter className="pt-0">
-              <div className="flex items-center gap-4 w-full">
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-red-500 font-pixelated text-xs h-8">
+            <CardFooter className="pt-0 p-3">
+              <div className="flex items-center gap-3 w-full">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-red-500 font-pixelated text-xs h-6 px-2">
                   <Heart className="h-3 w-3 mr-1" />
                   {post.likes}
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-8">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-6 px-2">
                   <MessageCircle className="h-3 w-3 mr-1" />
                   {post.comments.length}
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-8">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary font-pixelated text-xs h-6 px-2">
                   <Share className="h-3 w-3 mr-1" />
                   Share
                 </Button>
@@ -363,6 +400,34 @@ export function CommunityFeed() {
           </Card>
         ))
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletePostId} onOpenChange={() => setDeletePostId(null)}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="font-pixelated text-sm">Delete Post?</DialogTitle>
+          </DialogHeader>
+          <p className="font-pixelated text-xs text-muted-foreground">
+            This action cannot be undone. The post will be permanently deleted.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeletePostId(null)}
+              className="font-pixelated text-xs h-8"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePost}
+              className="font-pixelated text-xs h-8"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
