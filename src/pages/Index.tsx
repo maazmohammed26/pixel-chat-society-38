@@ -1,18 +1,11 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { MessageCircle, User, Users, Heart } from 'lucide-react';
 
 export function Index() {
-  // Check if user is logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Redirect to dashboard if already logged in
-      window.location.href = '/dashboard';
-    }
-  }, []);
+  // Remove the localStorage check and window.location.href redirect
+  // Let React Router and App.tsx handle authentication redirects properly
 
   return (
     <div className="min-h-screen flex flex-col">

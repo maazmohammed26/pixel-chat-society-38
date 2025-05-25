@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 
@@ -23,7 +22,8 @@ export const getCurrentUser = async () => {
  */
 export const logoutUser = async () => {
   await supabase.auth.signOut();
-  window.location.href = '/login';
+  // Don't use window.location.href, let the auth state change handle the redirect
+  return true;
 };
 
 /**

@@ -58,6 +58,7 @@ const App = () => {
     // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setLoading(false);
       }
@@ -65,6 +66,7 @@ const App = () => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.id);
       setSession(session);
       setLoading(false);
     });
@@ -99,9 +101,9 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Index />} />
-            <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
-            <Route path="/register" element={session ? <Navigate to="/dashboard" /> : <Register />} />
+            <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Index />} />
+            <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
+            <Route path="/register" element={session ? <Navigate to="/dashboard" replace /> : <Register />} />
             
             {/* Protected Routes */}
             <Route 
@@ -153,7 +155,7 @@ const App = () => {
               } 
             />
             
-            {/* Catch-all route */}
+            {/* Catch-all route for 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

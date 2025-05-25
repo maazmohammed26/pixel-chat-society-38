@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Settings, 
   LogOut,
@@ -43,6 +43,7 @@ interface SidebarContentProps {
 
 function SidebarContent({ onLinkClick }: SidebarContentProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   
@@ -81,6 +82,8 @@ function SidebarContent({ onLinkClick }: SidebarContentProps) {
         title: 'Logged out',
         description: 'You have been successfully logged out.',
       });
+      // Navigate to login page after logout
+      navigate('/login');
     } catch (error) {
       console.error('Error logging out:', error);
       toast({
