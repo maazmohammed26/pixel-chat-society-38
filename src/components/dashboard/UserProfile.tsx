@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Camera, Edit, Save, X, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface UserProfileData {
   id: string;
@@ -29,11 +30,13 @@ export default function UserProfile() {
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [stats, setStats] = useState<UserStats>({ posts: 0, friends: 0, likes: 0 });
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     username: ''
   });
   const [isLoading, setIsLoading] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -117,6 +120,52 @@ export default function UserProfile() {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      setIsUploadingAvatar(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar: data.publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      await fetchUserProfile();
+
+      toast({
+        title: 'Profile picture updated',
+        description: 'Your profile picture has been updated successfully',
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update profile picture',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -189,10 +238,18 @@ export default function UserProfile() {
               size="icon"
               variant="outline"
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border-2 border-social-green hover:bg-social-green hover:text-white"
-              disabled
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
             >
               <Camera className="h-2 w-2" />
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
           </div>
           
           {!isEditing ? (
