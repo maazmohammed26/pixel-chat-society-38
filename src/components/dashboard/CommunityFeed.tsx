@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,19 +37,6 @@ interface Post {
     };
     comment_likes: Array<{ id: string; user_id: string }>;
   }>;
-}
-
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
-  profiles: {
-    name: string;
-    username: string;
-    avatar: string | null;
-  };
-  comment_likes: Array<{ id: string; user_id: string }>;
 }
 
 export function CommunityFeed() {
@@ -150,14 +138,38 @@ export function CommunityFeed() {
               name,
               username,
               avatar
-            ),
-            comment_likes (*)
+            )
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts(postsData || []);
+      
+      // Fetch comment likes separately for each comment
+      const postsWithCommentLikes = await Promise.all(
+        (postsData || []).map(async (post) => {
+          const commentsWithLikes = await Promise.all(
+            post.comments.map(async (comment) => {
+              const { data: commentLikes } = await supabase
+                .from('comment_likes')
+                .select('id, user_id')
+                .eq('comment_id', comment.id);
+              
+              return {
+                ...comment,
+                comment_likes: commentLikes || []
+              };
+            })
+          );
+          
+          return {
+            ...post,
+            comments: commentsWithLikes
+          };
+        })
+      );
+      
+      setPosts(postsWithCommentLikes);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -392,12 +404,12 @@ export function CommunityFeed() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20">
       {/* Create Post */}
       <Card className="card-gradient">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-8 w-8 flex-shrink-0">
               {currentUser?.profile?.avatar ? (
                 <AvatarImage src={currentUser.profile.avatar} />
               ) : (
@@ -406,7 +418,7 @@ export function CommunityFeed() {
                 </AvatarFallback>
               )}
             </Avatar>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <Textarea
                 placeholder="What's on your mind?"
                 className="min-h-[60px] font-pixelated text-xs resize-none border-0 bg-transparent p-0 focus-visible:ring-0"
@@ -436,20 +448,20 @@ export function CommunityFeed() {
                 </div>
               )}
               
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex gap-1">
+              <div className="flex items-center justify-between mt-2 gap-2">
+                <div className="flex gap-1 flex-wrap">
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-6 px-2"
+                    className="h-6 px-2 text-xs"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Image className="h-3 w-3 mr-1" />
                     <span className="font-pixelated text-xs">Photo</span>
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-6 px-2" disabled>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled>
                     <Video className="h-3 w-3 mr-1" />
-                    <Badge variant="secondary" className="text-xs font-pixelated">Coming Soon</Badge>
+                    <Badge variant="secondary" className="text-xs font-pixelated ml-1">Soon</Badge>
                   </Button>
                   <input
                     ref={fileInputRef}
@@ -462,9 +474,9 @@ export function CommunityFeed() {
                 <Button
                   onClick={handlePost}
                   disabled={(!newPost.trim() && !imageToUpload) || posting}
-                  className="h-6 px-3 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs"
+                  className="h-6 px-3 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs flex-shrink-0"
                 >
-                  Post
+                  {posting ? 'Posting...' : 'Post'}
                 </Button>
               </div>
             </div>
@@ -555,7 +567,7 @@ export function CommunityFeed() {
                 {/* Existing Comments */}
                 {post.comments.length > 0 && (
                   <div className="space-y-2 mb-3">
-                    {post.comments.map((comment: Comment) => (
+                    {post.comments.map((comment) => (
                       <div key={comment.id} className="flex gap-2">
                         <Avatar className="h-6 w-6">
                           {comment.profiles?.avatar ? (
