@@ -145,34 +145,47 @@ export function Messages() {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedFriend || !currentUser) return;
+    if (!newMessage.trim() || !selectedFriend || !currentUser || sendingMessage) return;
     
     try {
       setSendingMessage(true);
       
+      const messageData = {
+        sender_id: currentUser.id,
+        receiver_id: selectedFriend.id,
+        content: newMessage.trim(),
+        read: false
+      };
+
       const { data, error } = await supabase
         .from('messages')
-        .insert({
-          sender_id: currentUser.id,
-          receiver_id: selectedFriend.id,
-          content: newMessage.trim(),
-          read: false
-        })
-        .select();
+        .insert(messageData)
+        .select()
+        .single();
         
       if (error) throw error;
 
-      if (data && data[0]) {
-        setMessages(prevMessages => [...prevMessages, {
-          ...data[0],
+      // Clear input immediately
+      setNewMessage('');
+      
+      // Add message to local state to prevent duplicates
+      if (data) {
+        const newMessageWithSender = {
+          ...data,
           sender: {
             name: currentUser.name,
             avatar: currentUser.avatar
           }
-        }]);
+        };
+        
+        setMessages(prevMessages => {
+          // Check if message already exists to prevent duplicates
+          const exists = prevMessages.some(msg => msg.id === data.id);
+          if (exists) return prevMessages;
+          return [...prevMessages, newMessageWithSender];
+        });
       }
       
-      setNewMessage('');
       scrollToBottom();
     } catch (error) {
       console.error('Error sending message:', error);
@@ -201,50 +214,65 @@ export function Messages() {
 
   useEffect(() => {
     fetchFriends();
-    
-    const channel = supabase
-      .channel('messages-changes')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'messages' }, 
-        async (payload) => {
-          const newMessage = payload.new as Message;
-          
-          if (
-            selectedFriend && 
-            ((newMessage.sender_id === selectedFriend.id && newMessage.receiver_id === currentUser?.id) || 
-             (newMessage.sender_id === currentUser?.id && newMessage.receiver_id === selectedFriend.id))
-          ) {
-            const { data } = await supabase
-              .from('profiles')
-              .select('name, avatar')
-              .eq('id', newMessage.sender_id)
-              .single();
-              
-            if (data) {
-              setMessages(prevMessages => [...prevMessages, {
-                ...newMessage,
-                sender: {
-                  name: data.name || 'Unknown',
-                  avatar: data.avatar || ''
-                }
-              }]);
-              scrollToBottom();
+  }, []);
+
+  useEffect(() => {
+    if (selectedFriend && currentUser) {
+      fetchMessages(selectedFriend.id);
+      
+      // Set up real-time subscription for messages
+      const channel = supabase
+        .channel(`messages-${selectedFriend.id}`)
+        .on('postgres_changes', 
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `or(and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${currentUser.id}))`
+          }, 
+          async (payload) => {
+            const newMessage = payload.new as Message;
+            
+            // Only add if it's not from current user (to prevent duplicates)
+            if (newMessage.sender_id !== currentUser.id) {
+              const { data } = await supabase
+                .from('profiles')
+                .select('name, avatar')
+                .eq('id', newMessage.sender_id)
+                .single();
+                
+              if (data) {
+                setMessages(prevMessages => {
+                  // Check if message already exists
+                  const exists = prevMessages.some(msg => msg.id === newMessage.id);
+                  if (exists) return prevMessages;
+                  
+                  return [...prevMessages, {
+                    ...newMessage,
+                    sender: {
+                      name: data.name || 'Unknown',
+                      avatar: data.avatar || ''
+                    }
+                  }];
+                });
+                scrollToBottom();
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [selectedFriend, currentUser]);
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col">
+      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-2 border-b bg-background">
+        <div className="flex items-center justify-between p-2 border-b bg-background sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
             <h1 className="font-pixelated text-sm">Messages</h1>
@@ -284,7 +312,7 @@ export function Messages() {
         </Dialog>
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden h-[calc(100vh-120px)]">
           {/* Friends list */}
           <div className={`w-full md:w-1/3 border-r overflow-hidden ${selectedFriend ? 'hidden md:block' : ''}`}>
             <div className="p-2 border-b">
@@ -293,7 +321,7 @@ export function Messages() {
                 <h3 className="font-pixelated text-xs">Contacts</h3>
               </div>
             </div>
-            <ScrollArea className="h-[calc(100vh-120px)]">
+            <ScrollArea className="h-full">
               {loading ? (
                 <div className="space-y-2 p-2">
                   {[1, 2, 3].map(i => (
@@ -418,19 +446,19 @@ export function Messages() {
                   )}
                 </ScrollArea>
                 
-                {/* Message input */}
-                <div className="p-2 border-t">
+                {/* Message input - Fixed at bottom */}
+                <div className="p-2 border-t bg-background">
                   <div className="flex gap-2">
                     <Textarea 
                       placeholder="Type a message..." 
-                      className="flex-1 min-h-[36px] max-h-[72px] font-pixelated text-xs resize-none"
+                      className="flex-1 min-h-[32px] max-h-[72px] font-pixelated text-xs resize-none"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[36px] w-[36px] p-0"
+                      className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[32px] w-[32px] p-0 flex-shrink-0"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >

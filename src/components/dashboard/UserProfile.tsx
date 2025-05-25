@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Camera, Edit, Save, X, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,19 +19,26 @@ interface UserProfileData {
   updated_at: string;
 }
 
+interface UserStats {
+  posts: number;
+  friends: number;
+  likes: number;
+}
+
 export default function UserProfile() {
   const [user, setUser] = useState<UserProfileData | null>(null);
+  const [stats, setStats] = useState<UserStats>({ posts: 0, friends: 0, likes: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
-    username: '',
-    bio: ''
+    username: ''
   });
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchUserProfile();
+    fetchUserStats();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -52,8 +58,7 @@ export default function UserProfile() {
         setUser(data);
         setEditForm({
           name: data.name || '',
-          username: data.username || '',
-          bio: '' // Remove bio field since it doesn't exist
+          username: data.username || ''
         });
       }
     } catch (error) {
@@ -65,6 +70,50 @@ export default function UserProfile() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUserStats = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      // Get posts count
+      const { count: postsCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', authUser.id);
+
+      // Get friends count
+      const { count: friendsCount } = await supabase
+        .from('friends')
+        .select('*', { count: 'exact', head: true })
+        .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
+        .eq('status', 'accepted');
+
+      // Get likes received count
+      const { data: userPosts } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('user_id', authUser.id);
+
+      let likesCount = 0;
+      if (userPosts && userPosts.length > 0) {
+        const { count } = await supabase
+          .from('likes')
+          .select('*', { count: 'exact', head: true })
+          .in('post_id', userPosts.map(post => post.id));
+        
+        likesCount = count || 0;
+      }
+
+      setStats({
+        posts: postsCount || 0,
+        friends: friendsCount || 0,
+        likes: likesCount
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
     }
   };
 
@@ -123,15 +172,15 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4 p-3">
+    <div className="max-w-2xl mx-auto space-y-3 p-3">
       <Card className="card-gradient">
-        <CardHeader className="text-center pb-4">
+        <CardHeader className="text-center pb-3">
           <div className="relative inline-block">
-            <Avatar className="w-20 h-20 mx-auto mb-3 border-2 border-social-green">
+            <Avatar className="w-16 h-16 mx-auto mb-2 border-2 border-social-green">
               {user.avatar ? (
                 <AvatarImage src={user.avatar} alt={user.name} />
               ) : (
-                <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-lg">
+                <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-sm">
                   {user.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
                 </AvatarFallback>
               )}
@@ -139,41 +188,41 @@ export default function UserProfile() {
             <Button
               size="icon"
               variant="outline"
-              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-background border-2 border-social-green hover:bg-social-green hover:text-white"
+              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border-2 border-social-green hover:bg-social-green hover:text-white"
               disabled
             >
-              <Camera className="h-3 w-3" />
+              <Camera className="h-2 w-2" />
             </Button>
           </div>
           
           {!isEditing ? (
             <>
-              <CardTitle className="font-pixelated text-lg text-foreground mb-1">
+              <CardTitle className="font-pixelated text-sm text-foreground mb-1">
                 {user.name}
               </CardTitle>
-              <p className="text-sm text-muted-foreground font-pixelated mb-2">
+              <p className="text-xs text-muted-foreground font-pixelated mb-1">
                 @{user.username}
               </p>
-              <p className="text-xs text-muted-foreground font-pixelated mb-4">
+              <p className="text-xs text-muted-foreground font-pixelated mb-3">
                 Member since {new Date(user.created_at).toLocaleDateString()}
               </p>
               <Button
                 onClick={() => setIsEditing(true)}
-                className="bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
+                className="bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-6"
               >
-                <Edit className="h-3 w-3 mr-1" />
+                <Edit className="h-2 w-2 mr-1" />
                 Edit Profile
               </Button>
             </>
           ) : (
-            <div className="space-y-3 text-left">
+            <div className="space-y-2 text-left">
               <div className="space-y-1">
                 <Label htmlFor="name" className="text-xs font-pixelated">Name</Label>
                 <Input
                   id="name"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="font-pixelated text-xs h-8"
+                  className="font-pixelated text-xs h-6"
                 />
               </div>
               
@@ -183,24 +232,24 @@ export default function UserProfile() {
                   id="username"
                   value={editForm.username}
                   onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  className="font-pixelated text-xs h-8"
+                  className="font-pixelated text-xs h-6"
                 />
               </div>
               
-              <div className="flex gap-2 justify-center pt-2">
+              <div className="flex gap-1 justify-center pt-2">
                 <Button
                   onClick={handleSave}
-                  className="bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
+                  className="bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-6"
                 >
-                  <Save className="h-3 w-3 mr-1" />
+                  <Save className="h-2 w-2 mr-1" />
                   Save
                 </Button>
                 <Button
                   onClick={() => setIsEditing(false)}
                   variant="outline"
-                  className="font-pixelated text-xs h-8"
+                  className="font-pixelated text-xs h-6"
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="h-2 w-2 mr-1" />
                   Cancel
                 </Button>
               </div>
@@ -211,18 +260,18 @@ export default function UserProfile() {
 
       {/* Stats Card */}
       <Card className="card-gradient">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-3 gap-4 text-center">
+        <CardContent className="p-3">
+          <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-lg font-pixelated text-social-green">0</p>
+              <p className="text-sm font-pixelated text-social-green">{stats.posts}</p>
               <p className="text-xs text-muted-foreground font-pixelated">Posts</p>
             </div>
             <div>
-              <p className="text-lg font-pixelated text-social-green">0</p>
+              <p className="text-sm font-pixelated text-social-green">{stats.friends}</p>
               <p className="text-xs text-muted-foreground font-pixelated">Friends</p>
             </div>
             <div>
-              <p className="text-lg font-pixelated text-social-green">0</p>
+              <p className="text-sm font-pixelated text-social-green">{stats.likes}</p>
               <p className="text-xs text-muted-foreground font-pixelated">Likes</p>
             </div>
           </div>
@@ -231,9 +280,9 @@ export default function UserProfile() {
 
       {/* Copyright */}
       <Card className="card-gradient">
-        <CardContent className="p-3 text-center">
+        <CardContent className="p-2 text-center">
           <p className="text-xs text-muted-foreground font-pixelated flex items-center justify-center gap-1">
-            Developed by Mohammed Maaz with <Heart className="h-3 w-3 text-red-500" fill="currentColor" />
+            Developed by Mohammed Maaz with <Heart className="h-2 w-2 text-red-500" fill="currentColor" />
           </p>
         </CardContent>
       </Card>

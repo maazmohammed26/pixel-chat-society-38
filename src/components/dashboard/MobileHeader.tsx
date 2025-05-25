@@ -66,16 +66,19 @@ export function MobileHeader() {
   }, []);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      // Force redirect to login page
+      window.location.href = '/login';
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error signing out",
         description: error.message,
       });
-    } else {
-      window.location.href = '/login';
     }
   };
 
@@ -192,6 +195,7 @@ export function MobileHeader() {
         </DropdownMenu>
       </div>
       
+      {/* Bottom Navigation - Icons Only */}
       <nav className="grid grid-cols-5 border-t bg-background">
         {tabs.map((tab) => (
           <Link 
