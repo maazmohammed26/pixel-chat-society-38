@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -6,11 +7,13 @@ import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { StoryViewer } from './StoryViewer';
 import { AddStoryDialog } from './AddStoryDialog';
+import { ProfilePictureViewer } from './ProfilePictureViewer';
 
 interface Story {
   id: string;
   user_id: string;
-  image_url: string;
+  image_url: string | null;
+  photo_urls: string[] | null;
   created_at: string;
   expires_at: string;
   views_count: number;
@@ -26,6 +29,11 @@ export function StoriesContainer() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showProfilePicture, setShowProfilePicture] = useState<{
+    show: boolean;
+    user: any;
+    showConfirm: boolean;
+  }>({ show: false, user: null, showConfirm: false });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -114,25 +122,52 @@ export function StoriesContainer() {
   const handleStoryClick = async (story: Story) => {
     setSelectedStory(story);
     
-    // Mark story as viewed
+    // Mark story as viewed using the new function
     if (story.user_id !== currentUser?.id) {
       try {
-        await supabase
-          .from('story_views')
-          .insert({
-            story_id: story.id,
-            viewer_id: currentUser?.id
-          });
+        const { data, error } = await supabase.rpc('increment_story_views', {
+          story_uuid: story.id,
+          viewer_uuid: currentUser?.id
+        });
         
-        // Update views count
-        await supabase
-          .from('stories')
-          .update({ views_count: story.views_count + 1 })
-          .eq('id', story.id);
+        if (error) {
+          console.error('Error tracking story view:', error);
+        } else {
+          // Update local state with new view count
+          setStories(prevStories => 
+            prevStories.map(s => 
+              s.id === story.id 
+                ? { ...s, views_count: data || s.views_count + 1 }
+                : s
+            )
+          );
+        }
       } catch (error) {
         console.error('Error tracking story view:', error);
       }
     }
+  };
+
+  const handleProfilePictureClick = (user: any) => {
+    if (user.id === currentUser?.id) {
+      // Show own profile picture directly
+      setShowProfilePicture({ show: true, user, showConfirm: false });
+    } else {
+      // Show confirmation for other users
+      setShowProfilePicture({ show: false, user, showConfirm: true });
+    }
+  };
+
+  const confirmViewProfilePicture = () => {
+    setShowProfilePicture(prev => ({ 
+      show: true, 
+      user: prev.user, 
+      showConfirm: false 
+    }));
+  };
+
+  const closeProfilePicture = () => {
+    setShowProfilePicture({ show: false, user: null, showConfirm: false });
   };
 
   const userHasStory = stories.some(story => story.user_id === currentUser?.id);
@@ -156,7 +191,14 @@ export function StoriesContainer() {
         {/* Add Story Button */}
         <div className="flex flex-col items-center gap-1 min-w-[60px]">
           <div className="relative">
-            <Avatar className="w-12 h-12 border-2 border-dashed border-social-green cursor-pointer hover:border-social-light-green transition-colors">
+            <Avatar 
+              className="w-12 h-12 border-2 border-dashed border-social-green cursor-pointer hover:border-social-light-green transition-colors"
+              onClick={() => handleProfilePictureClick({ 
+                id: currentUser?.id, 
+                name: currentUser?.name, 
+                avatar: currentUser?.avatar 
+              })}
+            >
               {currentUser?.avatar ? (
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
               ) : (
@@ -219,6 +261,15 @@ export function StoriesContainer() {
         onOpenChange={setShowAddDialog}
         onStoryAdded={fetchStories}
         currentUser={currentUser}
+      />
+
+      {/* Profile Picture Viewer */}
+      <ProfilePictureViewer
+        show={showProfilePicture.show}
+        showConfirm={showProfilePicture.showConfirm}
+        user={showProfilePicture.user}
+        onConfirm={confirmViewProfilePicture}
+        onClose={closeProfilePicture}
       />
     </>
   );

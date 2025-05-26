@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, Eye } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { X, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Story {
   id: string;
   user_id: string;
-  image_url: string;
+  image_url: string | null;
+  photo_urls: string[] | null;
   created_at: string;
   expires_at: string;
   views_count: number;
@@ -29,14 +29,32 @@ interface StoryViewerProps {
 export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps) {
   const [progress, setProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState(12);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  // Get all photos (handle both old single image and new multiple photos)
+  const photos = story.photo_urls && story.photo_urls.length > 0 
+    ? story.photo_urls 
+    : story.image_url 
+    ? [story.image_url] 
+    : [];
+
+  const totalPhotos = photos.length;
 
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((prev) => {
         const newProgress = prev + (100 / 120); // 12 seconds = 120 intervals of 100ms
         if (newProgress >= 100) {
-          onClose();
-          return 100;
+          // Move to next photo or close story
+          if (currentPhotoIndex < totalPhotos - 1) {
+            setCurrentPhotoIndex(prev => prev + 1);
+            setProgress(0);
+            setTimeLeft(12);
+            return 0;
+          } else {
+            onClose();
+            return 100;
+          }
         }
         return newProgress;
       });
@@ -44,14 +62,14 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
       setTimeLeft((prev) => {
         const newTime = prev - 0.1;
         if (newTime <= 0) {
-          return 0;
+          return 12;
         }
         return newTime;
       });
     }, 100);
 
     return () => clearInterval(timer);
-  }, [onClose]);
+  }, [onClose, currentPhotoIndex, totalPhotos]);
 
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -66,18 +84,45 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
     }
   };
 
+  const goToPreviousPhoto = () => {
+    if (currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1);
+      setProgress(0);
+      setTimeLeft(12);
+    }
+  };
+
+  const goToNextPhoto = () => {
+    if (currentPhotoIndex < totalPhotos - 1) {
+      setCurrentPhotoIndex(prev => prev + 1);
+      setProgress(0);
+      setTimeLeft(12);
+    } else {
+      onClose();
+    }
+  };
+
+  if (photos.length === 0) {
+    return null;
+  }
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-sm mx-auto p-0 bg-black border-none overflow-hidden">
         <div className="relative w-full h-[600px] flex flex-col">
-          {/* Progress Bar */}
-          <div className="absolute top-2 left-2 right-2 z-10">
-            <div className="w-full h-1 bg-white/30 rounded-full">
-              <div 
-                className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+          {/* Progress Bars */}
+          <div className="absolute top-2 left-2 right-2 z-10 flex gap-1">
+            {photos.map((_, index) => (
+              <div key={index} className="flex-1 h-1 bg-white/30 rounded-full">
+                <div 
+                  className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
+                  style={{ 
+                    width: index < currentPhotoIndex ? '100%' : 
+                           index === currentPhotoIndex ? `${progress}%` : '0%'
+                  }}
+                />
+              </div>
+            ))}
           </div>
 
           {/* Header */}
@@ -111,14 +156,38 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
             </Button>
           </div>
 
+          {/* Navigation Areas */}
+          <div className="absolute inset-0 flex">
+            <div 
+              className="flex-1 cursor-pointer z-10"
+              onClick={goToPreviousPhoto}
+              style={{ display: currentPhotoIndex > 0 ? 'block' : 'none' }}
+            />
+            <div 
+              className="flex-1 cursor-pointer z-10"
+              onClick={goToNextPhoto}
+            />
+          </div>
+
           {/* Story Image */}
           <div className="flex-1 flex items-center justify-center">
             <img
-              src={story.image_url}
+              src={photos[currentPhotoIndex]}
               alt="Story"
               className="max-w-full max-h-full object-contain"
             />
           </div>
+
+          {/* Photo Counter */}
+          {totalPhotos > 1 && (
+            <div className="absolute bottom-12 left-2 right-2 z-10">
+              <div className="flex items-center justify-center">
+                <span className="text-white/80 font-pixelated text-xs bg-black/30 px-2 py-1 rounded-full">
+                  {currentPhotoIndex + 1} / {totalPhotos}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           {story.user_id === currentUserId && (

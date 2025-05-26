@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Camera, Upload, X, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,82 +15,111 @@ interface AddStoryDialogProps {
 }
 
 export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }: AddStoryDialogProps) {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    // Validate total number of images (max 10)
+    if (selectedImages.length + files.length > 10) {
       toast({
         variant: 'destructive',
-        title: 'Invalid file type',
-        description: 'Please select an image file',
+        title: 'Too many photos',
+        description: 'You can add up to 10 photos per story',
       });
       return;
     }
 
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        variant: 'destructive',
-        title: 'File too large',
-        description: 'Please select an image smaller than 10MB',
-      });
-      return;
-    }
+    const validFiles: File[] = [];
+    const newPreviewUrls: string[] = [];
 
-    setSelectedImage(file);
+    files.forEach(file => {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid file type',
+          description: 'Please select only image files',
+        });
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Please select images smaller than 10MB each',
+        });
+        return;
+      }
+
+      validFiles.push(file);
+      newPreviewUrls.push(URL.createObjectURL(file));
+    });
+
+    setSelectedImages(prev => [...prev, ...validFiles]);
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+  };
+
+  const removeImage = (index: number) => {
+    // Revoke the URL to prevent memory leaks
+    URL.revokeObjectURL(previewUrls[index]);
     
-    // Create preview URL
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleUpload = async () => {
-    if (!selectedImage || !currentUser) return;
+    if (selectedImages.length === 0 || !currentUser) return;
 
     try {
       setUploading(true);
 
-      // Upload image to Supabase Storage
-      const fileExt = selectedImage.name.split('.').pop();
-      const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('stories')
-        .upload(fileName, selectedImage);
+      const uploadedUrls: string[] = [];
 
-      if (uploadError) throw uploadError;
+      // Upload all images
+      for (const image of selectedImages) {
+        const fileExt = image.name.split('.').pop();
+        const fileName = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('stories')
+          .upload(fileName, image);
 
-      // Get public URL
-      const { data } = supabase.storage
-        .from('stories')
-        .getPublicUrl(fileName);
+        if (uploadError) throw uploadError;
 
-      // Save story to database
+        // Get public URL
+        const { data } = supabase.storage
+          .from('stories')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(data.publicUrl);
+      }
+
+      // Save story to database with multiple photos
       const { error: insertError } = await supabase
         .from('stories')
         .insert({
           user_id: currentUser.id,
-          image_url: data.publicUrl,
+          photo_urls: uploadedUrls,
+          image_url: uploadedUrls[0], // Keep first image for backward compatibility
         });
 
       if (insertError) throw insertError;
 
       toast({
         title: 'Story posted!',
-        description: 'Your story has been shared successfully',
+        description: `Your story with ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''} has been shared successfully`,
       });
 
       // Reset form and close dialog
-      setSelectedImage(null);
-      setPreviewUrl(null);
+      resetForm();
       onOpenChange(false);
       onStoryAdded();
 
@@ -107,8 +136,11 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
   };
 
   const resetForm = () => {
-    setSelectedImage(null);
-    setPreviewUrl(null);
+    // Revoke all preview URLs to prevent memory leaks
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
+    
+    setSelectedImages([]);
+    setPreviewUrls([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -121,7 +153,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="max-w-md mx-auto max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
             Add to Your Story
@@ -143,22 +175,40 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
             <span className="font-pixelated text-xs">{currentUser?.name}</span>
           </div>
 
-          {/* Image Preview or Upload Area */}
-          {previewUrl ? (
-            <div className="relative">
-              <img
-                src={previewUrl}
-                alt="Story preview"
-                className="w-full h-64 object-cover rounded-lg"
-              />
-              <Button
-                onClick={resetForm}
-                size="icon"
-                variant="ghost"
-                className="absolute top-1 right-1 h-6 w-6 bg-black/50 text-white hover:bg-black/70"
-              >
-                <X className="h-3 w-3" />
-              </Button>
+          {/* Image Previews */}
+          {previewUrls.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                {previewUrls.map((url, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={url}
+                      alt={`Story preview ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <Button
+                      onClick={() => removeImage(index)}
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1 right-1 h-6 w-6 bg-black/50 text-white hover:bg-black/70"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              
+              {selectedImages.length < 10 && (
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="w-full font-pixelated text-xs h-8"
+                  disabled={uploading}
+                >
+                  <Camera className="h-3 w-3 mr-1" />
+                  Add More Photos ({selectedImages.length}/10)
+                </Button>
+              )}
             </div>
           ) : (
             <div
@@ -170,10 +220,10 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                   <ImageIcon className="h-6 w-6 text-social-green" />
                 </div>
                 <p className="font-pixelated text-xs text-muted-foreground">
-                  Tap to add a photo
+                  Tap to add photos
                 </p>
                 <p className="font-pixelated text-xs text-muted-foreground">
-                  Max 10MB
+                  Up to 10 photos, max 10MB each
                 </p>
               </div>
             </div>
@@ -183,13 +233,14 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleImageSelect}
             className="hidden"
           />
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            {selectedImage ? (
+            {selectedImages.length > 0 ? (
               <>
                 <Button
                   onClick={handleClose}
@@ -204,7 +255,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                   className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
                   disabled={uploading}
                 >
-                  {uploading ? 'Posting...' : 'Share Story'}
+                  {uploading ? 'Posting...' : `Share Story (${selectedImages.length})`}
                 </Button>
               </>
             ) : (
@@ -213,7 +264,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                 className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
               >
                 <Camera className="h-3 w-3 mr-1" />
-                Choose Photo
+                Choose Photos
               </Button>
             )}
           </div>

@@ -331,7 +331,8 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
-          image_url: string
+          image_url: string | null
+          photo_urls: Json | null
           user_id: string
           views_count: number
         }
@@ -339,7 +340,8 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
-          image_url: string
+          image_url?: string | null
+          photo_urls?: Json | null
           user_id: string
           views_count?: number
         }
@@ -347,7 +349,8 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
-          image_url?: string
+          image_url?: string | null
+          photo_urls?: Json | null
           user_id?: string
           views_count?: number
         }
@@ -405,6 +408,10 @@ export type Database = {
       delete_expired_stories: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      increment_story_views: {
+        Args: { story_uuid: string; viewer_uuid: string }
+        Returns: number
       }
     }
     Enums: {
