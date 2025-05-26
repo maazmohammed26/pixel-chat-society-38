@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CommunityFeed } from '@/components/dashboard/CommunityFeed';
+import { StoriesContainer } from '@/components/stories/StoriesContainer';
 import { Button } from '@/components/ui/button';
 import { Info, Home } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -40,7 +41,7 @@ export function Dashboard() {
                 Share your thoughts, connect with friends, and join the community conversation.
               </p>
               <p className="font-pixelated text-xs text-muted-foreground leading-relaxed">
-                Get started by posting in the community feed or by exploring suggested friends.
+                Get started by posting in the community feed, sharing stories, or by exploring suggested friends.
               </p>
               <Button 
                 onClick={() => setShowWelcome(false)}
@@ -51,9 +52,12 @@ export function Dashboard() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Stories Container */}
+        <StoriesContainer />
         
         {/* Content */}
-        <div className="h-[calc(100vh-120px)] overflow-y-auto p-2">
+        <div className="h-[calc(100vh-180px)] overflow-y-auto p-2">
           <CommunityFeed />
         </div>
       </div>
