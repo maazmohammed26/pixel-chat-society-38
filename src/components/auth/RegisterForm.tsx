@@ -1,194 +1,331 @@
 
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useToast } from '@/hooks/use-toast';
-import { AtSign, Lock, Mail, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 import { registerUser } from '@/utils/authUtils';
-
-const registerFormSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-  username: z.string().min(3, { message: 'Username must be at least 3 characters' })
-    .regex(/^[a-zA-Z0-9_]+$/, { message: 'Username can only contain letters, numbers and underscores' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' })
-});
-
-type RegisterFormValues = z.infer<typeof registerFormSchema>;
+import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 export function RegisterForm() {
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerFormSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      username: '',
-      password: '',
-    },
+  const [formData, setFormData] = useState({
+    name: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  async function onSubmit(data: RegisterFormValues) {
-    setIsLoading(true);
-    
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      setError('Please enter your full name');
+      return false;
+    }
+
+    if (formData.name.trim().length < 2) {
+      setError('Name must be at least 2 characters long');
+      return false;
+    }
+
+    if (!formData.username.trim()) {
+      setError('Please choose a username');
+      return false;
+    }
+
+    if (formData.username.trim().length < 3) {
+      setError('Username must be at least 3 characters long');
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(formData.username.trim())) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return false;
+    }
+
+    if (!formData.email.trim()) {
+      setError('Please enter your email address');
+      return false;
+    }
+
+    if (!formData.email.includes('@')) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+
+    if (!formData.password.trim()) {
+      setError('Please enter a password');
+      return false;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await registerUser(data.email, data.password, data.name, data.username);
+      setLoading(true);
+      
+      await registerUser(
+        formData.email.trim(),
+        formData.password,
+        formData.name.trim(),
+        formData.username.trim()
+      );
       
       toast({
-        title: 'Registration successful!',
-        description: 'Your account has been created. Please sign in.',
+        title: 'Account created successfully!',
+        description: 'Welcome to SocialChat! You can now start connecting with friends.',
       });
       
-      // Redirect to login after successful registration
-      navigate('/login');
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('Registration error', error);
+      console.error('Registration error:', error);
       
-      // Handle specific error cases
-      if (error.message.includes('email')) {
-        toast({
-          variant: 'destructive',
-          title: 'Registration failed',
-          description: 'Email is already registered',
-        });
-      } else if (error.message.includes('username')) {
-        toast({
-          variant: 'destructive',
-          title: 'Registration failed',
-          description: 'Username is already taken',
-        });
+      // Provide specific error messages
+      if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
+        setError('An account with this email already exists. Please try logging in instead.');
+      } else if (error.message?.includes('password')) {
+        setError('Password must be at least 6 characters long');
+      } else if (error.message?.includes('email')) {
+        setError('Please enter a valid email address');
+      } else if (error.message?.includes('Username') || error.message?.includes('username')) {
+        setError('This username is already taken. Please choose a different one.');
+      } else if (error.message?.includes('network') || error.message?.includes('Network')) {
+        setError('Network error. Please check your connection and try again.');
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Registration failed',
-          description: error.message || 'Something went wrong. Please try again.',
-        });
+        setError('Registration failed. Please try again or contact support@socialchat.site if the problem persists.');
       }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError(''); // Clear error when user starts typing
+  };
+
+  const getPasswordStrength = (password: string) => {
+    if (password.length === 0) return { strength: 0, text: '' };
+    if (password.length < 6) return { strength: 1, text: 'Too short' };
+    if (password.length < 8) return { strength: 2, text: 'Weak' };
+    if (password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)) {
+      return { strength: 4, text: 'Strong' };
+    }
+    return { strength: 3, text: 'Good' };
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <div className="w-full animate-fade-in">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold social-gradient bg-clip-text text-transparent">Create Account</h1>
-        <p className="text-muted-foreground mt-2">Join our social community today</p>
-      </div>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Full Name</FormLabel>
-                <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
-                    <User className="ml-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Enter your full name" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
-                      {...field} 
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold text-center font-pixelated social-gradient bg-clip-text text-transparent">
+          Join SocialChat
+        </CardTitle>
+        <p className="text-center text-muted-foreground font-pixelated text-sm">
+          Create your account to start connecting
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription className="font-pixelated text-sm">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="font-pixelated">Full Name</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Enter your full name"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              className="font-pixelated"
+              disabled={loading}
+              autoComplete="name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="username" className="font-pixelated">Username</Label>
+            <Input
+              id="username"
+              type="text"
+              placeholder="Choose a username"
+              value={formData.username}
+              onChange={(e) => handleInputChange('username', e.target.value.toLowerCase())}
+              className="font-pixelated"
+              disabled={loading}
+              autoComplete="username"
+            />
+            {formData.username && formData.username.length >= 3 && (
+              <div className="flex items-center gap-1 text-sm text-green-600">
+                <CheckCircle className="h-3 w-3" />
+                <span className="font-pixelated">Username available</span>
+              </div>
             )}
-          />
+          </div>
           
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
-                    <Mail className="ml-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Enter your email address" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
-                      {...field} 
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="email" className="font-pixelated">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              className="font-pixelated"
+              disabled={loading}
+              autoComplete="email"
+            />
+          </div>
           
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
-                    <AtSign className="ml-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Choose a unique username" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
-                      {...field} 
+          <div className="space-y-2">
+            <Label htmlFor="password" className="font-pixelated">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className="font-pixelated pr-10"
+                disabled={loading}
+                autoComplete="new-password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            {formData.password && (
+              <div className="space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((level) => (
+                    <div
+                      key={level}
+                      className={`h-1 flex-1 rounded ${
+                        level <= passwordStrength.strength
+                          ? level <= 2
+                            ? 'bg-red-500'
+                            : level === 3
+                            ? 'bg-yellow-500'
+                            : 'bg-green-500'
+                          : 'bg-muted'
+                      }`}
                     />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+                  ))}
+                </div>
+                <p className="text-xs font-pixelated text-muted-foreground">
+                  Password strength: {passwordStrength.text}
+                </p>
+              </div>
             )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <div className="flex items-center border rounded-md bg-muted/40 focus-within:ring-1 focus-within:ring-ring">
-                    <Lock className="ml-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      type="password" 
-                      placeholder="Create a strong password" 
-                      className="border-0 bg-transparent focus-visible:ring-0" 
-                      {...field} 
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword" className="font-pixelated">Confirm Password</Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className="font-pixelated pr-10"
+                disabled={loading}
+                autoComplete="new-password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={loading}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            {formData.confirmPassword && formData.password === formData.confirmPassword && (
+              <div className="flex items-center gap-1 text-sm text-green-600">
+                <CheckCircle className="h-3 w-3" />
+                <span className="font-pixelated">Passwords match</span>
+              </div>
             )}
-          />
+          </div>
           
           <Button 
             type="submit" 
-            className="w-full mt-6 btn-gradient"
-            disabled={isLoading}
+            className="w-full btn-gradient font-pixelated"
+            disabled={loading}
           >
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>
-      </Form>
-      
-      <div className="mt-6 text-center text-sm">
-        <span className="text-muted-foreground">Already have an account?</span>{' '}
-        <Link to="/login" className="font-medium text-primary hover:underline">
-          Sign in
-        </Link>
-      </div>
-    </div>
+        
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground font-pixelated">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:underline font-medium">
+              Sign in
+            </Link>
+          </p>
+        </div>
+
+        <div className="bg-muted p-3 rounded-lg">
+          <p className="text-xs font-pixelated text-muted-foreground text-center">
+            Need help? Contact{' '}
+            <a href="mailto:support@socialchat.site" className="text-primary underline">
+              support@socialchat.site
+            </a>
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
-
-export default RegisterForm;

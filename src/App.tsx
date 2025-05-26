@@ -38,7 +38,7 @@ const App = () => {
     faviconLink.setAttribute('href', '/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png');
     document.head.appendChild(faviconLink);
     
-    document.title = "SocialChat";
+    document.title = "SocialChat - Connect with Friends";
     
     // Set up notifications when session changes and user is authenticated
     let cleanupNotifications: (() => void) | undefined;
@@ -57,16 +57,32 @@ const App = () => {
   useEffect(() => {
     // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        setLoading(false);
+        
+        // Handle auth events
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setLoading(false);
+          // Clear any cached data
+          localStorage.clear();
+          sessionStorage.clear();
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(session);
+          setLoading(false);
+        } else if (event === 'INITIAL_SESSION') {
+          setSession(session);
+          setLoading(false);
+        } else {
+          setSession(session);
+          setLoading(false);
+        }
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session?.user?.id);
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setLoading(false);
     });
@@ -74,7 +90,9 @@ const App = () => {
     // Setup push notifications
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
-        Notification.requestPermission();
+        Notification.requestPermission().then(permission => {
+          console.log('Notification permission:', permission);
+        });
       } catch (error) {
         console.error("Error requesting notification permission:", error);
       }
@@ -87,8 +105,15 @@ const App = () => {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <img src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" alt="SocialChat Logo" className="h-16 w-auto animate-pulse" />
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-social-light-green to-social-blue">
+        <div className="text-center">
+          <img 
+            src="/lovable-uploads/d215e62c-d97d-4600-a98e-68acbeba47d0.png" 
+            alt="SocialChat Logo" 
+            className="h-20 w-auto mx-auto animate-pulse mb-4" 
+          />
+          <p className="font-pixelated text-white text-sm">Loading SocialChat...</p>
+        </div>
       </div>
     );
   }
@@ -100,12 +125,21 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Index />} />
-            <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
-            <Route path="/register" element={session ? <Navigate to="/dashboard" replace /> : <Register />} />
+            {/* Public Routes - redirect to dashboard if authenticated */}
+            <Route 
+              path="/" 
+              element={session ? <Navigate to="/dashboard" replace /> : <Index />} 
+            />
+            <Route 
+              path="/login" 
+              element={session ? <Navigate to="/dashboard" replace /> : <Login />} 
+            />
+            <Route 
+              path="/register" 
+              element={session ? <Navigate to="/dashboard" replace /> : <Register />} 
+            />
             
-            {/* Protected Routes */}
+            {/* Protected Routes - redirect to login if not authenticated */}
             <Route 
               path="/dashboard" 
               element={
@@ -155,7 +189,7 @@ const App = () => {
               } 
             />
             
-            {/* Catch-all route for 404 */}
+            {/* Catch-all route for 404 - improved */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
