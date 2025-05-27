@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,10 +31,10 @@ interface StoryViewerProps {
 
 export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: StoryViewerProps) {
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(12);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Get all photos (handle both old single image and new multiple photos)
@@ -48,17 +48,21 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
   const isOwner = story.user_id === currentUserId;
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || totalPhotos === 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
-    const timer = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setProgress((prev) => {
         const newProgress = prev + (100 / 120); // 12 seconds = 120 intervals of 100ms
         if (newProgress >= 100) {
           // Move to next photo or close story
           if (currentPhotoIndex < totalPhotos - 1) {
             setCurrentPhotoIndex(prev => prev + 1);
-            setProgress(0);
-            setTimeLeft(12);
             return 0;
           } else {
             onClose();
@@ -67,18 +71,20 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
         }
         return newProgress;
       });
-
-      setTimeLeft((prev) => {
-        const newTime = prev - 0.1;
-        if (newTime <= 0) {
-          return 12;
-        }
-        return newTime;
-      });
     }, 100);
 
-    return () => clearInterval(timer);
-  }, [onClose, currentPhotoIndex, totalPhotos, isPaused]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isPaused, currentPhotoIndex, totalPhotos, onClose]);
+
+  // Reset progress when photo changes
+  useEffect(() => {
+    setProgress(0);
+  }, [currentPhotoIndex]);
 
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -97,7 +103,6 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
     if (currentPhotoIndex > 0) {
       setCurrentPhotoIndex(prev => prev - 1);
       setProgress(0);
-      setTimeLeft(12);
     }
   };
 
@@ -105,14 +110,13 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
     if (currentPhotoIndex < totalPhotos - 1) {
       setCurrentPhotoIndex(prev => prev + 1);
       setProgress(0);
-      setTimeLeft(12);
     } else {
       onClose();
     }
   };
 
   const togglePause = () => {
-    setIsPaused(!isPaused);
+    setIsPaused(prev => !prev);
   };
 
   const handleDeleteStory = async () => {

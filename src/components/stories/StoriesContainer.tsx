@@ -55,6 +55,12 @@ export function StoriesContainer() {
 
   const fetchStories = useCallback(async () => {
     try {
+      // First clean up expired stories
+      await supabase
+        .from('stories')
+        .delete()
+        .lt('expires_at', new Date().toISOString());
+
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -152,20 +158,9 @@ export function StoriesContainer() {
     }
   }, [currentUser?.id]);
 
-  const handleCurrentUserProfileClick = useCallback(() => {
-    // Show own profile picture directly without confirmation
-    if (currentUser) {
-      setShowProfilePicture({ 
-        show: true, 
-        user: { 
-          id: currentUser.id, 
-          name: currentUser.name, 
-          avatar: currentUser.avatar 
-        }, 
-        showConfirm: false 
-      });
-    }
-  }, [currentUser]);
+  const handleAddStoryClick = useCallback(() => {
+    setShowAddDialog(true);
+  }, []);
 
   const confirmViewProfilePicture = useCallback(() => {
     setShowProfilePicture(prev => ({ 
@@ -203,10 +198,7 @@ export function StoriesContainer() {
         {/* Add Story Button */}
         <div className="flex flex-col items-center gap-1 min-w-[60px]">
           <div className="relative">
-            <Avatar 
-              className="w-12 h-12 border-2 border-dashed border-social-green cursor-pointer hover:border-social-light-green transition-colors"
-              onClick={handleCurrentUserProfileClick}
-            >
+            <Avatar className="w-12 h-12 border-2 border-dashed border-social-green">
               {currentUser?.avatar ? (
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} loading="eager" />
               ) : (
@@ -217,10 +209,7 @@ export function StoriesContainer() {
             </Avatar>
             <Button
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowAddDialog(true);
-              }}
+              onClick={handleAddStoryClick}
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-social-green hover:bg-social-light-green text-white"
             >
               <Plus className="h-2 w-2" />
