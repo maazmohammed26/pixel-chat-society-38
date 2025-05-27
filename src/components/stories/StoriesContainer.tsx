@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -55,12 +56,6 @@ export function StoriesContainer() {
 
   const fetchStories = useCallback(async () => {
     try {
-      // First clean up expired stories
-      await supabase
-        .from('stories')
-        .delete()
-        .lt('expires_at', new Date().toISOString());
-
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -76,7 +71,6 @@ export function StoriesContainer() {
 
       if (error) throw error;
 
-      // Group stories by user and keep only the latest story per user
       const groupedStories = data?.reduce((acc: Record<string, Story>, story: any) => {
         if (!acc[story.user_id] || new Date(story.created_at) > new Date(acc[story.user_id].created_at)) {
           acc[story.user_id] = story;
@@ -101,7 +95,6 @@ export function StoriesContainer() {
     getCurrentUser();
     fetchStories();
     
-    // Set up realtime subscription for stories
     const channel = supabase
       .channel('stories-changes')
       .on(
@@ -125,7 +118,6 @@ export function StoriesContainer() {
   const handleStoryClick = useCallback(async (story: Story) => {
     setSelectedStory(story);
     
-    // Mark story as viewed using the new function
     if (story.user_id !== currentUser?.id) {
       try {
         const { data, error } = await supabase.rpc('increment_story_views', {
@@ -136,7 +128,6 @@ export function StoriesContainer() {
         if (error) {
           console.error('Error tracking story view:', error);
         } else {
-          // Update local state with new view count
           setStories(prevStories => 
             prevStories.map(s => 
               s.id === story.id 
@@ -151,14 +142,28 @@ export function StoriesContainer() {
     }
   }, [currentUser?.id]);
 
-  const handleOtherUserProfileClick = useCallback((user: any) => {
-    // Only show confirmation for other users, not current user
-    if (user.id !== currentUser?.id) {
-      setShowProfilePicture({ show: false, user, showConfirm: true });
+  const handleAvatarClick = useCallback((story: Story, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (story.user_id === currentUser?.id) {
+      // For own story, open the story viewer directly
+      handleStoryClick(story);
+    } else {
+      // For others, show profile picture confirmation
+      setShowProfilePicture({ 
+        show: false, 
+        user: {
+          id: story.user_id,
+          name: story.profiles.name,
+          avatar: story.profiles.avatar
+        }, 
+        showConfirm: true 
+      });
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, handleStoryClick]);
 
-  const handleAddStoryClick = useCallback(() => {
+  const handleAddStoryClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setShowAddDialog(true);
   }, []);
 
@@ -229,17 +234,7 @@ export function StoriesContainer() {
             <div className="relative">
               <Avatar 
                 className="w-12 h-12 border-2 border-social-green hover:border-social-light-green transition-colors"
-                onClick={() => {
-                  if (story.user_id === currentUser?.id) {
-                    handleStoryClick(story);
-                  } else {
-                    handleOtherUserProfileClick({
-                      id: story.user_id,
-                      name: story.profiles.name,
-                      avatar: story.profiles.avatar
-                    });
-                  }
-                }}
+                onClick={(e) => handleAvatarClick(story, e)}
               >
                 {story.profiles.avatar ? (
                   <AvatarImage src={story.profiles.avatar} alt={story.profiles.name} loading="eager" />
@@ -250,15 +245,6 @@ export function StoriesContainer() {
                 )}
               </Avatar>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-social-green to-social-blue opacity-20" />
-              {story.user_id !== currentUser?.id && (
-                <div 
-                  className="absolute inset-0 rounded-full cursor-pointer z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStoryClick(story);
-                  }}
-                />
-              )}
             </div>
             <span className="text-xs font-pixelated text-center truncate max-w-[60px]">
               {story.user_id === currentUser?.id ? 'You' : story.profiles.name.split(' ')[0]}

@@ -37,7 +37,6 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Get all photos (handle both old single image and new multiple photos)
   const photos = story.photo_urls && story.photo_urls.length > 0 
     ? story.photo_urls 
     : story.image_url 
@@ -58,9 +57,8 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
 
     intervalRef.current = setInterval(() => {
       setProgress((prev) => {
-        const newProgress = prev + (100 / 120); // 12 seconds = 120 intervals of 100ms
+        const newProgress = prev + (100 / 120);
         if (newProgress >= 100) {
-          // Move to next photo or close story
           if (currentPhotoIndex < totalPhotos - 1) {
             setCurrentPhotoIndex(prev => prev + 1);
             return 0;
@@ -81,7 +79,6 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
     };
   }, [isPaused, currentPhotoIndex, totalPhotos, onClose]);
 
-  // Reset progress when photo changes
   useEffect(() => {
     setProgress(0);
   }, [currentPhotoIndex]);
@@ -99,14 +96,16 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
     }
   };
 
-  const goToPreviousPhoto = () => {
+  const goToPreviousPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (currentPhotoIndex > 0) {
       setCurrentPhotoIndex(prev => prev - 1);
       setProgress(0);
     }
   };
 
-  const goToNextPhoto = () => {
+  const goToNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (currentPhotoIndex < totalPhotos - 1) {
       setCurrentPhotoIndex(prev => prev + 1);
       setProgress(0);
@@ -115,11 +114,13 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
     }
   };
 
-  const togglePause = () => {
+  const togglePause = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsPaused(prev => !prev);
   };
 
-  const handleDeleteStory = async () => {
+  const handleDeleteStory = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!isOwner || isDeleting) return;
 
     try {
@@ -202,7 +203,7 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
                 onClick={togglePause}
                 size="icon"
                 variant="ghost"
-                className="text-white hover:bg-white/20 h-6 w-6"
+                className="text-white hover:bg-white/20 h-6 w-6 z-20"
               >
                 {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
               </Button>
@@ -213,7 +214,7 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
                   onClick={handleDeleteStory}
                   size="icon"
                   variant="ghost"
-                  className="text-white hover:bg-red-500/20 h-6 w-6"
+                  className="text-white hover:bg-red-500/20 h-6 w-6 z-20"
                   disabled={isDeleting}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -222,10 +223,13 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
 
               {/* Close Button */}
               <Button
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
                 size="icon"
                 variant="ghost"
-                className="text-white hover:bg-white/20 h-6 w-6"
+                className="text-white hover:bg-white/20 h-6 w-6 z-20"
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -233,14 +237,14 @@ export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: S
           </div>
 
           {/* Navigation Areas */}
-          <div className="absolute inset-0 flex">
+          <div className="absolute inset-0 flex z-10">
             <div 
-              className="flex-1 cursor-pointer z-10"
+              className="flex-1 cursor-pointer"
               onClick={goToPreviousPhoto}
               style={{ display: currentPhotoIndex > 0 ? 'block' : 'none' }}
             />
             <div 
-              className="flex-1 cursor-pointer z-10"
+              className="flex-1 cursor-pointer"
               onClick={goToNextPhoto}
             />
           </div>

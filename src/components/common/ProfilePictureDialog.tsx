@@ -14,10 +14,17 @@ interface ProfilePictureDialogProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserId?: string;
+  showConfirmation?: boolean;
 }
 
-export function ProfilePictureDialog({ user, isOpen, onClose, currentUserId }: ProfilePictureDialogProps) {
-  const [showConfirm, setShowConfirm] = useState(true);
+export function ProfilePictureDialog({ 
+  user, 
+  isOpen, 
+  onClose, 
+  currentUserId,
+  showConfirmation = true 
+}: ProfilePictureDialogProps) {
+  const [showConfirm, setShowConfirm] = useState(showConfirmation);
   const [showImage, setShowImage] = useState(false);
 
   if (!user) return null;
@@ -30,12 +37,12 @@ export function ProfilePictureDialog({ user, isOpen, onClose, currentUserId }: P
   };
 
   const handleClose = () => {
-    setShowConfirm(true);
+    setShowConfirm(showConfirmation);
     setShowImage(false);
     onClose();
   };
 
-  if (showImage || isOwnProfile) {
+  if (showImage || isOwnProfile || !showConfirmation) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-lg mx-auto p-0 bg-black border-none overflow-hidden">
@@ -88,7 +95,7 @@ export function ProfilePictureDialog({ user, isOpen, onClose, currentUserId }: P
     );
   }
 
-  if (showConfirm && !isOwnProfile) {
+  if (showConfirm && !isOwnProfile && showConfirmation) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-sm mx-auto">

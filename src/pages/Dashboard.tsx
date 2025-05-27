@@ -7,12 +7,12 @@ import { StoriesContainer } from '@/components/stories/StoriesContainer';
 export function Dashboard() {
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)]">
-        {/* Stories Container - moved to top */}
+      <div className="max-w-2xl mx-auto relative">
+        {/* Stories Container at the top */}
         <StoriesContainer />
         
-        {/* Content */}
-        <div className="h-[calc(100vh-120px)] overflow-y-auto">
+        {/* Community Feed */}
+        <div className="min-h-screen">
           <CommunityFeed />
         </div>
       </div>
