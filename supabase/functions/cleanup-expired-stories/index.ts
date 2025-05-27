@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Delete expired stories
     const { data: expiredStories, error: fetchError } = await supabase
       .from('stories')
-      .select('image_url, photo_urls')
+      .select('image_url')
       .lt('expires_at', new Date().toISOString())
 
     if (fetchError) {
@@ -32,33 +32,14 @@ Deno.serve(async (req) => {
       // Delete images from storage
       for (const story of expiredStories) {
         try {
-          // Handle single image (backward compatibility)
-          if (story.image_url) {
-            const url = new URL(story.image_url)
-            const path = url.pathname.split('/').slice(-2).join('/') // Get the file path
-            
-            await supabase.storage
-              .from('stories')
-              .remove([path])
-          }
-
-          // Handle multiple photos
-          if (story.photo_urls && Array.isArray(story.photo_urls)) {
-            for (const photoUrl of story.photo_urls) {
-              try {
-                const url = new URL(photoUrl)
-                const path = url.pathname.split('/').slice(-2).join('/') // Get the file path
-                
-                await supabase.storage
-                  .from('stories')
-                  .remove([path])
-              } catch (error) {
-                console.error('Error deleting photo:', error)
-              }
-            }
-          }
+          const url = new URL(story.image_url)
+          const path = url.pathname.split('/').slice(-2).join('/') // Get the file path
+          
+          await supabase.storage
+            .from('stories')
+            .remove([path])
         } catch (error) {
-          console.error('Error deleting story images:', error)
+          console.error('Error deleting story image:', error)
         }
       }
 
