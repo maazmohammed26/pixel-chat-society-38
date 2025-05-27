@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -37,51 +36,24 @@ export function StoriesContainer() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    getCurrentUser();
-    fetchStories();
-    
-    // Set up realtime subscription for stories
-    const channel = supabase
-      .channel('stories-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stories'
-        },
-        () => {
-          fetchStories();
-        }
-      )
-      .subscribe();
-
-    // Clean up expired stories every minute
-    const interval = setInterval(() => {
-      fetchStories();
-    }, 60000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
+  const getCurrentUser = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        setCurrentUser(profile);
+      }
+    } catch (error) {
+      console.error('Error getting current user:', error);
+    }
   }, []);
 
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      setCurrentUser(profile);
-    }
-  };
-
-  const fetchStories = async () => {
+  const fetchStories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('stories')
@@ -117,9 +89,34 @@ export function StoriesContainer() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleStoryClick = async (story: Story) => {
+  useEffect(() => {
+    getCurrentUser();
+    fetchStories();
+    
+    // Set up realtime subscription for stories
+    const channel = supabase
+      .channel('stories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stories'
+        },
+        () => {
+          fetchStories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [getCurrentUser, fetchStories]);
+
+  const handleStoryClick = useCallback(async (story: Story) => {
     setSelectedStory(story);
     
     // Mark story as viewed using the new function
@@ -146,31 +143,46 @@ export function StoriesContainer() {
         console.error('Error tracking story view:', error);
       }
     }
-  };
+  }, [currentUser?.id]);
 
-  const handleProfilePictureClick = (user: any) => {
-    if (user.id === currentUser?.id) {
-      // Show own profile picture directly
-      setShowProfilePicture({ show: true, user, showConfirm: false });
-    } else {
-      // Show confirmation for other users
+  const handleOtherUserProfileClick = useCallback((user: any) => {
+    // Only show confirmation for other users, not current user
+    if (user.id !== currentUser?.id) {
       setShowProfilePicture({ show: false, user, showConfirm: true });
     }
-  };
+  }, [currentUser?.id]);
 
-  const confirmViewProfilePicture = () => {
+  const handleCurrentUserProfileClick = useCallback(() => {
+    // Show own profile picture directly without confirmation
+    if (currentUser) {
+      setShowProfilePicture({ 
+        show: true, 
+        user: { 
+          id: currentUser.id, 
+          name: currentUser.name, 
+          avatar: currentUser.avatar 
+        }, 
+        showConfirm: false 
+      });
+    }
+  }, [currentUser]);
+
+  const confirmViewProfilePicture = useCallback(() => {
     setShowProfilePicture(prev => ({ 
       show: true, 
       user: prev.user, 
       showConfirm: false 
     }));
-  };
+  }, []);
 
-  const closeProfilePicture = () => {
+  const closeProfilePicture = useCallback(() => {
     setShowProfilePicture({ show: false, user: null, showConfirm: false });
-  };
+  }, []);
 
-  const userHasStory = stories.some(story => story.user_id === currentUser?.id);
+  const userHasStory = useMemo(() => 
+    stories.some(story => story.user_id === currentUser?.id), 
+    [stories, currentUser?.id]
+  );
 
   if (loading) {
     return (
@@ -193,14 +205,10 @@ export function StoriesContainer() {
           <div className="relative">
             <Avatar 
               className="w-12 h-12 border-2 border-dashed border-social-green cursor-pointer hover:border-social-light-green transition-colors"
-              onClick={() => handleProfilePictureClick({ 
-                id: currentUser?.id, 
-                name: currentUser?.name, 
-                avatar: currentUser?.avatar 
-              })}
+              onClick={handleCurrentUserProfileClick}
             >
               {currentUser?.avatar ? (
-                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                <AvatarImage src={currentUser.avatar} alt={currentUser.name} loading="eager" />
               ) : (
                 <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
                   {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
@@ -209,7 +217,10 @@ export function StoriesContainer() {
             </Avatar>
             <Button
               size="icon"
-              onClick={() => setShowAddDialog(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAddDialog(true);
+              }}
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-social-green hover:bg-social-light-green text-white"
             >
               <Plus className="h-2 w-2" />
@@ -225,12 +236,24 @@ export function StoriesContainer() {
           <div
             key={story.id}
             className="flex flex-col items-center gap-1 min-w-[60px] cursor-pointer"
-            onClick={() => handleStoryClick(story)}
           >
             <div className="relative">
-              <Avatar className="w-12 h-12 border-2 border-social-green hover:border-social-light-green transition-colors">
+              <Avatar 
+                className="w-12 h-12 border-2 border-social-green hover:border-social-light-green transition-colors"
+                onClick={() => {
+                  if (story.user_id === currentUser?.id) {
+                    handleStoryClick(story);
+                  } else {
+                    handleOtherUserProfileClick({
+                      id: story.user_id,
+                      name: story.profiles.name,
+                      avatar: story.profiles.avatar
+                    });
+                  }
+                }}
+              >
                 {story.profiles.avatar ? (
-                  <AvatarImage src={story.profiles.avatar} alt={story.profiles.name} />
+                  <AvatarImage src={story.profiles.avatar} alt={story.profiles.name} loading="eager" />
                 ) : (
                   <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
                     {story.profiles.name.substring(0, 2).toUpperCase()}
@@ -238,6 +261,15 @@ export function StoriesContainer() {
                 )}
               </Avatar>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-social-green to-social-blue opacity-20" />
+              {story.user_id !== currentUser?.id && (
+                <div 
+                  className="absolute inset-0 rounded-full cursor-pointer z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStoryClick(story);
+                  }}
+                />
+              )}
             </div>
             <span className="text-xs font-pixelated text-center truncate max-w-[60px]">
               {story.user_id === currentUser?.id ? 'You' : story.profiles.name.split(' ')[0]}
@@ -251,6 +283,7 @@ export function StoriesContainer() {
         <StoryViewer
           story={selectedStory}
           onClose={() => setSelectedStory(null)}
+          onStoryDeleted={fetchStories}
           currentUserId={currentUser?.id}
         />
       )}

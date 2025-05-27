@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Eye, Pause, Play, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Story {
   id: string;
@@ -23,13 +25,17 @@ interface Story {
 interface StoryViewerProps {
   story: Story;
   onClose: () => void;
+  onStoryDeleted?: () => void;
   currentUserId: string;
 }
 
-export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps) {
+export function StoryViewer({ story, onClose, onStoryDeleted, currentUserId }: StoryViewerProps) {
   const [progress, setProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState(12);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
 
   // Get all photos (handle both old single image and new multiple photos)
   const photos = story.photo_urls && story.photo_urls.length > 0 
@@ -39,8 +45,11 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
     : [];
 
   const totalPhotos = photos.length;
+  const isOwner = story.user_id === currentUserId;
 
   useEffect(() => {
+    if (isPaused) return;
+
     const timer = setInterval(() => {
       setProgress((prev) => {
         const newProgress = prev + (100 / 120); // 12 seconds = 120 intervals of 100ms
@@ -69,7 +78,7 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
     }, 100);
 
     return () => clearInterval(timer);
-  }, [onClose, currentPhotoIndex, totalPhotos]);
+  }, [onClose, currentPhotoIndex, totalPhotos, isPaused]);
 
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,6 +108,42 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
       setTimeLeft(12);
     } else {
       onClose();
+    }
+  };
+
+  const togglePause = () => {
+    setIsPaused(!isPaused);
+  };
+
+  const handleDeleteStory = async () => {
+    if (!isOwner || isDeleting) return;
+
+    try {
+      setIsDeleting(true);
+      
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', story.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Story deleted',
+        description: 'Your story has been deleted successfully',
+      });
+
+      onClose();
+      onStoryDeleted?.();
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete story. Please try again.',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -146,14 +191,41 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
                 </p>
               </div>
             </div>
-            <Button
-              onClick={onClose}
-              size="icon"
-              variant="ghost"
-              className="text-white hover:bg-white/20 h-6 w-6"
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            
+            <div className="flex items-center gap-2">
+              {/* Pause/Play Button */}
+              <Button
+                onClick={togglePause}
+                size="icon"
+                variant="ghost"
+                className="text-white hover:bg-white/20 h-6 w-6"
+              >
+                {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              </Button>
+
+              {/* Delete Button (only for story owner) */}
+              {isOwner && (
+                <Button
+                  onClick={handleDeleteStory}
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-red-500/20 h-6 w-6"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+
+              {/* Close Button */}
+              <Button
+                onClick={onClose}
+                size="icon"
+                variant="ghost"
+                className="text-white hover:bg-white/20 h-6 w-6"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
 
           {/* Navigation Areas */}
@@ -175,6 +247,7 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
               src={photos[currentPhotoIndex]}
               alt="Story"
               className="max-w-full max-h-full object-contain"
+              loading="eager"
             />
           </div>
 
@@ -190,7 +263,7 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
           )}
 
           {/* Footer */}
-          {story.user_id === currentUserId && (
+          {isOwner && (
             <div className="absolute bottom-2 left-2 right-2 z-10">
               <div className="flex items-center justify-center gap-1 text-white/80">
                 <Eye className="h-3 w-3" />
