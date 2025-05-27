@@ -17,33 +17,51 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Delete expired stories
-    const { data: expiredStories, error: fetchError } = await supabase
-      .from('stories')
-      .select('image_url')
-      .lt('expires_at', new Date().toISOString())
-
-    if (fetchError) {
-      console.error('Error fetching expired stories:', fetchError)
-      throw fetchError
+    // Use the new cleanup function that handles individual photo expiration
+    const { error: cleanupError } = await supabase.rpc('cleanup_expired_story_photos')
+    
+    if (cleanupError) {
+      console.error('Error cleaning up expired story photos:', cleanupError)
+      throw cleanupError
     }
 
+    // Also clean up any stories that are past their expires_at time
+    const { data: expiredStories, error: fetchError } = await supabase
+      .from('stories')
+      .select('image_url, photo_urls')
+      .lt('expires_at', new Date().toISOString())
+
+    let cleanedUpCount = 0;
+
     if (expiredStories && expiredStories.length > 0) {
-      // Delete images from storage
+      // Delete images from storage for fully expired stories
       for (const story of expiredStories) {
         try {
-          const url = new URL(story.image_url)
-          const path = url.pathname.split('/').slice(-2).join('/') // Get the file path
-          
-          await supabase.storage
-            .from('stories')
-            .remove([path])
+          // Delete single image if exists
+          if (story.image_url) {
+            const url = new URL(story.image_url)
+            const path = url.pathname.split('/').slice(-2).join('/')
+            await supabase.storage.from('stories').remove([path])
+          }
+
+          // Delete multiple photos if they exist
+          if (story.photo_urls && Array.isArray(story.photo_urls)) {
+            for (const photoUrl of story.photo_urls) {
+              try {
+                const url = new URL(photoUrl)
+                const path = url.pathname.split('/').slice(-2).join('/')
+                await supabase.storage.from('stories').remove([path])
+              } catch (error) {
+                console.error('Error deleting photo:', error)
+              }
+            }
+          }
         } catch (error) {
-          console.error('Error deleting story image:', error)
+          console.error('Error deleting story images:', error)
         }
       }
 
-      // Delete stories from database
+      // Delete expired stories from database
       const { error: deleteError } = await supabase
         .from('stories')
         .delete()
@@ -54,12 +72,15 @@ Deno.serve(async (req) => {
         throw deleteError
       }
 
-      console.log(`Cleaned up ${expiredStories.length} expired stories`)
+      cleanedUpCount = expiredStories.length
     }
+
+    console.log(`Cleaned up ${cleanedUpCount} fully expired stories and handled individual photo expiration`)
 
     return new Response(
       JSON.stringify({ 
-        message: `Cleaned up ${expiredStories?.length || 0} expired stories` 
+        message: `Cleaned up ${cleanedUpCount} expired stories and handled photo expiration`,
+        success: true
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

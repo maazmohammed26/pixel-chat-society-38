@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ interface Story {
   user_id: string;
   image_url: string | null;
   photo_urls: string[] | null;
+  photo_metadata: any[] | null;
   created_at: string;
   expires_at: string;
   views_count: number;
@@ -37,52 +37,11 @@ export function StoriesContainer() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    getCurrentUser();
-    fetchStories();
-    
-    // Set up realtime subscription for stories
-    const channel = supabase
-      .channel('stories-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stories'
-        },
-        () => {
-          fetchStories();
-        }
-      )
-      .subscribe();
-
-    // Clean up expired stories every minute
-    const interval = setInterval(() => {
-      fetchStories();
-    }, 60000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
-  }, []);
-
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      setCurrentUser(profile);
-    }
-  };
-
-  const fetchStories = async () => {
+  const fetchStories = useCallback(async () => {
     try {
+      // First cleanup expired photos
+      await supabase.rpc('cleanup_expired_story_photos');
+
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -117,9 +76,51 @@ export function StoriesContainer() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleStoryClick = async (story: Story) => {
+  const getCurrentUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      setCurrentUser(profile);
+    }
+  }, []);
+
+  useEffect(() => {
+    getCurrentUser();
+    fetchStories();
+    
+    // Set up realtime subscription for stories
+    const channel = supabase
+      .channel('stories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stories'
+        },
+        () => {
+          fetchStories();
+        }
+      )
+      .subscribe();
+
+    // Clean up expired stories every 5 minutes
+    const interval = setInterval(fetchStories, 300000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [getCurrentUser, fetchStories]);
+
+  const handleStoryClick = useCallback(async (story: Story) => {
     setSelectedStory(story);
     
     // Mark story as viewed using the new function
@@ -146,31 +147,19 @@ export function StoriesContainer() {
         console.error('Error tracking story view:', error);
       }
     }
-  };
+  }, [currentUser?.id]);
 
-  const handleProfilePictureClick = (user: any) => {
-    if (user.id === currentUser?.id) {
-      // Show own profile picture directly
-      setShowProfilePicture({ show: true, user, showConfirm: false });
-    } else {
-      // Show confirmation for other users
-      setShowProfilePicture({ show: false, user, showConfirm: true });
-    }
-  };
+  const userStory = useMemo(() => {
+    return stories.find(story => story.user_id === currentUser?.id);
+  }, [stories, currentUser?.id]);
 
-  const confirmViewProfilePicture = () => {
-    setShowProfilePicture(prev => ({ 
-      show: true, 
-      user: prev.user, 
-      showConfirm: false 
-    }));
-  };
+  const otherStories = useMemo(() => {
+    return stories.filter(story => story.user_id !== currentUser?.id);
+  }, [stories, currentUser?.id]);
 
-  const closeProfilePicture = () => {
-    setShowProfilePicture({ show: false, user: null, showConfirm: false });
-  };
-
-  const userHasStory = stories.some(story => story.user_id === currentUser?.id);
+  const handleAddStory = useCallback(() => {
+    setShowAddDialog(true);
+  }, []);
 
   if (loading) {
     return (
@@ -191,14 +180,9 @@ export function StoriesContainer() {
         {/* Add Story Button */}
         <div className="flex flex-col items-center gap-1 min-w-[60px]">
           <div className="relative">
-            <Avatar 
-              className="w-12 h-12 border-2 border-dashed border-social-green cursor-pointer hover:border-social-light-green transition-colors"
-              onClick={() => handleProfilePictureClick({ 
-                id: currentUser?.id, 
-                name: currentUser?.name, 
-                avatar: currentUser?.avatar 
-              })}
-            >
+            <Avatar className={`w-12 h-12 border-2 cursor-pointer transition-colors ${
+              userStory ? 'border-social-green hover:border-social-light-green' : 'border-dashed border-social-green hover:border-social-light-green'
+            }`}>
               {currentUser?.avatar ? (
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
               ) : (
@@ -209,19 +193,43 @@ export function StoriesContainer() {
             </Avatar>
             <Button
               size="icon"
-              onClick={() => setShowAddDialog(true)}
+              onClick={handleAddStory}
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-social-green hover:bg-social-light-green text-white"
             >
               <Plus className="h-2 w-2" />
             </Button>
           </div>
           <span className="text-xs font-pixelated text-center">
-            {userHasStory ? 'Your Story' : 'Add Story'}
+            {userStory ? 'Your Story' : 'Add Story'}
           </span>
         </div>
 
-        {/* Stories */}
-        {stories.map((story) => (
+        {/* User's own story (if exists) */}
+        {userStory && (
+          <div
+            className="flex flex-col items-center gap-1 min-w-[60px] cursor-pointer"
+            onClick={() => handleStoryClick(userStory)}
+          >
+            <div className="relative">
+              <Avatar className="w-12 h-12 border-2 border-social-green hover:border-social-light-green transition-colors">
+                {userStory.profiles.avatar ? (
+                  <AvatarImage src={userStory.profiles.avatar} alt={userStory.profiles.name} />
+                ) : (
+                  <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
+                    {userStory.profiles.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-social-green to-social-blue opacity-20" />
+            </div>
+            <span className="text-xs font-pixelated text-center truncate max-w-[60px]">
+              You
+            </span>
+          </div>
+        )}
+
+        {/* Other Stories */}
+        {otherStories.map((story) => (
           <div
             key={story.id}
             className="flex flex-col items-center gap-1 min-w-[60px] cursor-pointer"
@@ -240,7 +248,7 @@ export function StoriesContainer() {
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-social-green to-social-blue opacity-20" />
             </div>
             <span className="text-xs font-pixelated text-center truncate max-w-[60px]">
-              {story.user_id === currentUser?.id ? 'You' : story.profiles.name.split(' ')[0]}
+              {story.profiles.name.split(' ')[0]}
             </span>
           </div>
         ))}
@@ -252,6 +260,7 @@ export function StoriesContainer() {
           story={selectedStory}
           onClose={() => setSelectedStory(null)}
           currentUserId={currentUser?.id}
+          onStoryUpdated={fetchStories}
         />
       )}
 
@@ -261,6 +270,7 @@ export function StoriesContainer() {
         onOpenChange={setShowAddDialog}
         onStoryAdded={fetchStories}
         currentUser={currentUser}
+        existingStory={userStory}
       />
 
       {/* Profile Picture Viewer */}
@@ -268,8 +278,12 @@ export function StoriesContainer() {
         show={showProfilePicture.show}
         showConfirm={showProfilePicture.showConfirm}
         user={showProfilePicture.user}
-        onConfirm={confirmViewProfilePicture}
-        onClose={closeProfilePicture}
+        onConfirm={() => setShowProfilePicture(prev => ({ 
+          show: true, 
+          user: prev.user, 
+          showConfirm: false 
+        }))}
+        onClose={() => setShowProfilePicture({ show: false, user: null, showConfirm: false })}
       />
     </>
   );

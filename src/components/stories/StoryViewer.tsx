@@ -1,15 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Eye, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Story {
   id: string;
   user_id: string;
   image_url: string | null;
   photo_urls: string[] | null;
+  photo_metadata: any[] | null;
   created_at: string;
   expires_at: string;
   views_count: number;
@@ -24,14 +27,19 @@ interface StoryViewerProps {
   story: Story;
   onClose: () => void;
   currentUserId: string;
+  onStoryUpdated: () => void;
 }
 
-export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps) {
+export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: StoryViewerProps) {
   const [progress, setProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState(12);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
 
-  // Get all photos (handle both old single image and new multiple photos)
   const photos = story.photo_urls && story.photo_urls.length > 0 
     ? story.photo_urls 
     : story.image_url 
@@ -39,37 +47,43 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
     : [];
 
   const totalPhotos = photos.length;
+  const isOwnStory = story.user_id === currentUserId;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = prev + (100 / 120); // 12 seconds = 120 intervals of 100ms
-        if (newProgress >= 100) {
-          // Move to next photo or close story
-          if (currentPhotoIndex < totalPhotos - 1) {
-            setCurrentPhotoIndex(prev => prev + 1);
-            setProgress(0);
-            setTimeLeft(12);
-            return 0;
-          } else {
-            onClose();
-            return 100;
+    if (!isPaused) {
+      timerRef.current = setInterval(() => {
+        setProgress((prev) => {
+          const newProgress = prev + (100 / 120);
+          if (newProgress >= 100) {
+            if (currentPhotoIndex < totalPhotos - 1) {
+              setCurrentPhotoIndex(prev => prev + 1);
+              setProgress(0);
+              setTimeLeft(12);
+              return 0;
+            } else {
+              onClose();
+              return 100;
+            }
           }
-        }
-        return newProgress;
-      });
+          return newProgress;
+        });
 
-      setTimeLeft((prev) => {
-        const newTime = prev - 0.1;
-        if (newTime <= 0) {
-          return 12;
-        }
-        return newTime;
-      });
-    }, 100);
+        setTimeLeft((prev) => {
+          const newTime = prev - 0.1;
+          if (newTime <= 0) {
+            return 12;
+          }
+          return newTime;
+        });
+      }, 100);
+    }
 
-    return () => clearInterval(timer);
-  }, [onClose, currentPhotoIndex, totalPhotos]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isPaused, onClose, currentPhotoIndex, totalPhotos]);
 
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,6 +113,52 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
       setTimeLeft(12);
     } else {
       onClose();
+    }
+  };
+
+  const handleLongPressStart = () => {
+    longPressRef.current = setTimeout(() => {
+      setIsPaused(true);
+    }, 200);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+    }
+    setIsPaused(false);
+  };
+
+  const handleDeletePhoto = async (photoIndex: number) => {
+    try {
+      const { error } = await supabase.rpc('delete_story_photos', {
+        story_id: story.id,
+        photo_indices: [photoIndex]
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Photo deleted',
+        description: 'The photo has been removed from your story',
+      });
+
+      onStoryUpdated();
+      
+      if (totalPhotos === 1) {
+        onClose();
+      } else if (currentPhotoIndex >= totalPhotos - 1) {
+        setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+      }
+      
+      setShowDeleteOptions(false);
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete photo',
+      });
     }
   };
 
@@ -146,15 +206,41 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
                 </p>
               </div>
             </div>
-            <Button
-              onClick={onClose}
-              size="icon"
-              variant="ghost"
-              className="text-white hover:bg-white/20 h-6 w-6"
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {isOwnStory && (
+                <Button
+                  onClick={() => setShowDeleteOptions(!showDeleteOptions)}
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-white/20 h-6 w-6"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+              <Button
+                onClick={onClose}
+                size="icon"
+                variant="ghost"
+                className="text-white hover:bg-white/20 h-6 w-6"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
+
+          {/* Delete Options */}
+          {showDeleteOptions && isOwnStory && (
+            <div className="absolute top-16 right-2 z-20 bg-black/80 rounded-lg p-2">
+              <Button
+                onClick={() => handleDeletePhoto(currentPhotoIndex)}
+                size="sm"
+                variant="destructive"
+                className="font-pixelated text-xs h-6"
+              >
+                Delete This Photo
+              </Button>
+            </div>
+          )}
 
           {/* Navigation Areas */}
           <div className="absolute inset-0 flex">
@@ -169,13 +255,27 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
             />
           </div>
 
-          {/* Story Image */}
-          <div className="flex-1 flex items-center justify-center">
+          {/* Story Image with Long Press */}
+          <div 
+            className="flex-1 flex items-center justify-center"
+            onMouseDown={handleLongPressStart}
+            onMouseUp={handleLongPressEnd}
+            onMouseLeave={handleLongPressEnd}
+            onTouchStart={handleLongPressStart}
+            onTouchEnd={handleLongPressEnd}
+          >
             <img
               src={photos[currentPhotoIndex]}
               alt="Story"
               className="max-w-full max-h-full object-contain"
             />
+            {isPaused && (
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                <div className="text-white font-pixelated text-sm bg-black/50 px-3 py-1 rounded-full">
+                  Paused
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Photo Counter */}
@@ -190,7 +290,7 @@ export function StoryViewer({ story, onClose, currentUserId }: StoryViewerProps)
           )}
 
           {/* Footer */}
-          {story.user_id === currentUserId && (
+          {isOwnStory && (
             <div className="absolute bottom-2 left-2 right-2 z-10">
               <div className="flex items-center justify-center gap-1 text-white/80">
                 <Eye className="h-3 w-3" />

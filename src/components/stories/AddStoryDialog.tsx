@@ -1,9 +1,8 @@
-
 import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Upload, X, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Camera, Upload, X, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,25 +11,30 @@ interface AddStoryDialogProps {
   onOpenChange: (open: boolean) => void;
   onStoryAdded: () => void;
   currentUser: any;
+  existingStory?: any;
 }
 
-export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }: AddStoryDialogProps) {
+export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, existingStory }: AddStoryDialogProps) {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const hasExistingPhotos = existingStory?.photo_urls?.length > 0;
+  const existingPhotosCount = hasExistingPhotos ? existingStory.photo_urls.length : 0;
+  const totalPhotosAfterUpload = existingPhotosCount + selectedImages.length;
+
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
     // Validate total number of images (max 10)
-    if (selectedImages.length + files.length > 10) {
+    if (totalPhotosAfterUpload + files.length > 10) {
       toast({
         variant: 'destructive',
         title: 'Too many photos',
-        description: 'You can add up to 10 photos per story',
+        description: `You can add up to 10 photos per story. You currently have ${existingPhotosCount} photos.`,
       });
       return;
     }
@@ -39,7 +43,6 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
     const newPreviewUrls: string[] = [];
 
     files.forEach(file => {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
           variant: 'destructive',
@@ -49,7 +52,6 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
         return;
       }
 
-      // Validate file size (10MB limit)
       if (file.size > 10 * 1024 * 1024) {
         toast({
           variant: 'destructive',
@@ -68,9 +70,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
   };
 
   const removeImage = (index: number) => {
-    // Revoke the URL to prevent memory leaks
     URL.revokeObjectURL(previewUrls[index]);
-    
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
@@ -82,6 +82,8 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
       setUploading(true);
 
       const uploadedUrls: string[] = [];
+      const photoMetadata: any[] = [];
+      const currentTime = new Date().toISOString();
 
       // Upload all images
       for (const image of selectedImages) {
@@ -94,31 +96,50 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data } = supabase.storage
           .from('stories')
           .getPublicUrl(fileName);
 
         uploadedUrls.push(data.publicUrl);
+        photoMetadata.push({
+          uploaded_at: currentTime,
+          file_name: fileName
+        });
       }
 
-      // Save story to database with multiple photos
-      const { error: insertError } = await supabase
-        .from('stories')
-        .insert({
-          user_id: currentUser.id,
-          photo_urls: uploadedUrls,
-          image_url: uploadedUrls[0], // Keep first image for backward compatibility
+      // Add photos to existing story or create new one
+      if (hasExistingPhotos) {
+        const { error } = await supabase.rpc('add_photos_to_story', {
+          story_user_id: currentUser.id,
+          new_photo_urls: uploadedUrls,
+          new_photo_metadata: photoMetadata
         });
 
-      if (insertError) throw insertError;
+        if (error) throw error;
 
-      toast({
-        title: 'Story posted!',
-        description: `Your story with ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''} has been shared successfully`,
-      });
+        toast({
+          title: 'Photos added!',
+          description: `Added ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''} to your story`,
+        });
+      } else {
+        // Create new story
+        const { error: insertError } = await supabase
+          .from('stories')
+          .insert({
+            user_id: currentUser.id,
+            photo_urls: uploadedUrls,
+            photo_metadata: photoMetadata,
+            image_url: uploadedUrls[0],
+          });
 
-      // Reset form and close dialog
+        if (insertError) throw insertError;
+
+        toast({
+          title: 'Story posted!',
+          description: `Your story with ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''} has been shared`,
+        });
+      }
+
       resetForm();
       onOpenChange(false);
       onStoryAdded();
@@ -136,9 +157,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
   };
 
   const resetForm = () => {
-    // Revoke all preview URLs to prevent memory leaks
     previewUrls.forEach(url => URL.revokeObjectURL(url));
-    
     setSelectedImages([]);
     setPreviewUrls([]);
     if (fileInputRef.current) {
@@ -156,7 +175,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
       <DialogContent className="max-w-md mx-auto max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
-            Add to Your Story
+            {hasExistingPhotos ? 'Add More Photos' : 'Add to Your Story'}
           </DialogTitle>
         </DialogHeader>
 
@@ -175,15 +194,44 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
             <span className="font-pixelated text-xs">{currentUser?.name}</span>
           </div>
 
-          {/* Image Previews */}
+          {/* Existing Photos Preview */}
+          {hasExistingPhotos && (
+            <div className="space-y-2">
+              <p className="font-pixelated text-xs text-muted-foreground">
+                Current story ({existingPhotosCount} photo{existingPhotosCount > 1 ? 's' : ''})
+              </p>
+              <div className="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto">
+                {existingStory.photo_urls.slice(0, 6).map((url: string, index: number) => (
+                  <img
+                    key={index}
+                    src={url}
+                    alt={`Existing ${index + 1}`}
+                    className="w-full h-16 object-cover rounded"
+                  />
+                ))}
+                {existingPhotosCount > 6 && (
+                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
+                    <span className="font-pixelated text-xs text-muted-foreground">
+                      +{existingPhotosCount - 6}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* New Image Previews */}
           {previewUrls.length > 0 ? (
             <div className="space-y-3">
+              <p className="font-pixelated text-xs text-muted-foreground">
+                New photos to add ({selectedImages.length})
+              </p>
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                 {previewUrls.map((url, index) => (
                   <div key={index} className="relative">
                     <img
                       src={url}
-                      alt={`Story preview ${index + 1}`}
+                      alt={`New photo ${index + 1}`}
                       className="w-full h-32 object-cover rounded-lg"
                     />
                     <Button
@@ -198,15 +246,15 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                 ))}
               </div>
               
-              {selectedImages.length < 10 && (
+              {totalPhotosAfterUpload < 10 && (
                 <Button
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
                   className="w-full font-pixelated text-xs h-8"
                   disabled={uploading}
                 >
-                  <Camera className="h-3 w-3 mr-1" />
-                  Add More Photos ({selectedImages.length}/10)
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add More ({totalPhotosAfterUpload}/10)
                 </Button>
               )}
             </div>
@@ -220,10 +268,13 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                   <ImageIcon className="h-6 w-6 text-social-green" />
                 </div>
                 <p className="font-pixelated text-xs text-muted-foreground">
-                  Tap to add photos
+                  {hasExistingPhotos ? 'Add more photos' : 'Tap to add photos'}
                 </p>
                 <p className="font-pixelated text-xs text-muted-foreground">
-                  Up to 10 photos, max 10MB each
+                  {hasExistingPhotos 
+                    ? `${10 - existingPhotosCount} photos remaining`
+                    : 'Up to 10 photos, max 10MB each'
+                  }
                 </p>
               </div>
             </div>
@@ -255,7 +306,10 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                   className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
                   disabled={uploading}
                 >
-                  {uploading ? 'Posting...' : `Share Story (${selectedImages.length})`}
+                  {uploading ? 'Adding...' : 
+                   hasExistingPhotos ? `Add ${selectedImages.length} Photo${selectedImages.length > 1 ? 's' : ''}` :
+                   `Share Story (${selectedImages.length})`
+                  }
                 </Button>
               </>
             ) : (
@@ -264,7 +318,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser }
                 className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
               >
                 <Camera className="h-3 w-3 mr-1" />
-                Choose Photos
+                {hasExistingPhotos ? 'Add More Photos' : 'Choose Photos'}
               </Button>
             )}
           </div>

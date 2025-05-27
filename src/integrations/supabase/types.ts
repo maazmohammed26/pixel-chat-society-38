@@ -332,6 +332,7 @@ export type Database = {
           expires_at: string
           id: string
           image_url: string | null
+          photo_metadata: Json | null
           photo_urls: Json | null
           user_id: string
           views_count: number
@@ -341,6 +342,7 @@ export type Database = {
           expires_at?: string
           id?: string
           image_url?: string | null
+          photo_metadata?: Json | null
           photo_urls?: Json | null
           user_id: string
           views_count?: number
@@ -350,6 +352,7 @@ export type Database = {
           expires_at?: string
           id?: string
           image_url?: string | null
+          photo_metadata?: Json | null
           photo_urls?: Json | null
           user_id?: string
           views_count?: number
@@ -405,9 +408,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_photos_to_story: {
+        Args: {
+          story_user_id: string
+          new_photo_urls: string[]
+          new_photo_metadata?: Json
+        }
+        Returns: string
+      }
+      cleanup_expired_story_photos: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       delete_expired_stories: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      delete_story_photos: {
+        Args: { story_id: string; photo_indices: number[] }
+        Returns: boolean
       }
       increment_story_views: {
         Args: { story_uuid: string; viewer_uuid: string }
