@@ -2,9 +2,25 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Upload, X, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
+import { Camera, Upload, X, Image as ImageIcon, Trash2, Plus, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AddStoryDialogProps {
   open: boolean;
@@ -18,6 +34,11 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<{
+    show: boolean;
+    type: 'existing' | 'new';
+    index: number;
+  }>({ show: false, type: 'existing', index: -1 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -69,10 +90,37 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
     setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
   };
 
-  const removeImage = (index: number) => {
+  const removeNewImage = (index: number) => {
     URL.revokeObjectURL(previewUrls[index]);
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDeleteExistingPhoto = async (photoIndex: number) => {
+    try {
+      const { error } = await supabase.rpc('delete_story_photos', {
+        story_id: existingStory.id,
+        photo_indices: [photoIndex]
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Photo deleted',
+        description: 'The photo has been removed from your story',
+      });
+
+      onStoryAdded(); // Refresh the stories
+      setShowDeleteConfirmation({ show: false, type: 'existing', index: -1 });
+
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete photo',
+      });
+    }
   };
 
   const handleUpload = async () => {
@@ -171,159 +219,229 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md mx-auto max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
-            {hasExistingPhotos ? 'Add More Photos' : 'Add to Your Story'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          {/* User Info */}
-          <div className="flex items-center gap-2">
-            <Avatar className="w-8 h-8">
-              {currentUser?.avatar ? (
-                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              ) : (
-                <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
-                  {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <span className="font-pixelated text-xs">{currentUser?.name}</span>
-          </div>
-
-          {/* Existing Photos Preview */}
-          {hasExistingPhotos && (
-            <div className="space-y-2">
-              <p className="font-pixelated text-xs text-muted-foreground">
-                Current story ({existingPhotosCount} photo{existingPhotosCount > 1 ? 's' : ''})
-              </p>
-              <div className="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto">
-                {existingStory.photo_urls.slice(0, 6).map((url: string, index: number) => (
-                  <img
-                    key={index}
-                    src={url}
-                    alt={`Existing ${index + 1}`}
-                    className="w-full h-16 object-cover rounded"
-                  />
-                ))}
-                {existingPhotosCount > 6 && (
-                  <div className="w-full h-16 bg-muted rounded flex items-center justify-center">
-                    <span className="font-pixelated text-xs text-muted-foreground">
-                      +{existingPhotosCount - 6}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* New Image Previews */}
-          {previewUrls.length > 0 ? (
-            <div className="space-y-3">
-              <p className="font-pixelated text-xs text-muted-foreground">
-                New photos to add ({selectedImages.length})
-              </p>
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                {previewUrls.map((url, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={url}
-                      alt={`New photo ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
+                {hasExistingPhotos ? 'Add More Photos' : 'Add to Your Story'}
+              </DialogTitle>
+              
+              {/* Story Settings - Only show if user has existing photos */}
+              {hasExistingPhotos && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
-                      onClick={() => removeImage(index)}
                       size="icon"
                       variant="ghost"
-                      className="absolute top-1 right-1 h-6 w-6 bg-black/50 text-white hover:bg-black/70"
+                      className="h-6 w-6"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Settings className="h-3 w-3" />
                     </Button>
-                  </div>
-                ))}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {/* Story settings can be expanded here */}}
+                      className="font-pixelated text-xs"
+                    >
+                      Manage Story
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* User Info */}
+            <div className="flex items-center gap-2">
+              <Avatar className="w-8 h-8">
+                {currentUser?.avatar ? (
+                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                ) : (
+                  <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
+                    {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <span className="font-pixelated text-xs">{currentUser?.name}</span>
+            </div>
+
+            {/* Existing Photos Preview with Delete Options */}
+            {hasExistingPhotos && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-pixelated text-xs text-muted-foreground">
+                    Current story ({existingPhotosCount} photo{existingPhotosCount > 1 ? 's' : ''})
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
+                  {existingStory.photo_urls.map((url: string, index: number) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Existing ${index + 1}`}
+                        className="w-full h-16 object-cover rounded"
+                      />
+                      <Button
+                        onClick={() => setShowDeleteConfirmation({ 
+                          show: true, 
+                          type: 'existing', 
+                          index 
+                        })}
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-0 right-0 h-4 w-4 bg-black/50 text-white hover:bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-2 w-2" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              {totalPhotosAfterUpload < 10 && (
+            )}
+
+            {/* New Image Previews */}
+            {previewUrls.length > 0 ? (
+              <div className="space-y-3">
+                <p className="font-pixelated text-xs text-muted-foreground">
+                  New photos to add ({selectedImages.length})
+                </p>
+                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                  {previewUrls.map((url, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={url}
+                        alt={`New photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        onClick={() => setShowDeleteConfirmation({ 
+                          show: true, 
+                          type: 'new', 
+                          index 
+                        })}
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-1 right-1 h-6 w-6 bg-black/50 text-white hover:bg-red-500/80"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                {totalPhotosAfterUpload < 10 && (
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    className="w-full font-pixelated text-xs h-8"
+                    disabled={uploading}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add More ({totalPhotosAfterUpload}/10)
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-social-green rounded-lg p-8 text-center cursor-pointer hover:border-social-light-green transition-colors"
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full bg-social-green/10 flex items-center justify-center">
+                    <ImageIcon className="h-6 w-6 text-social-green" />
+                  </div>
+                  <p className="font-pixelated text-xs text-muted-foreground">
+                    {hasExistingPhotos ? 'Add more photos' : 'Tap to add photos'}
+                  </p>
+                  <p className="font-pixelated text-xs text-muted-foreground">
+                    {hasExistingPhotos 
+                      ? `${10 - existingPhotosCount} photos remaining`
+                      : 'Up to 10 photos, max 10MB each'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              {selectedImages.length > 0 ? (
+                <>
+                  <Button
+                    onClick={handleClose}
+                    variant="outline"
+                    className="flex-1 font-pixelated text-xs h-8"
+                    disabled={uploading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpload}
+                    className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Adding...' : 
+                     hasExistingPhotos ? `Add ${selectedImages.length} Photo${selectedImages.length > 1 ? 's' : ''}` :
+                     `Share Story (${selectedImages.length})`
+                    }
+                  </Button>
+                </>
+              ) : (
                 <Button
                   onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  className="w-full font-pixelated text-xs h-8"
-                  disabled={uploading}
+                  className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
                 >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add More ({totalPhotosAfterUpload}/10)
+                  <Camera className="h-3 w-3 mr-1" />
+                  {hasExistingPhotos ? 'Add More Photos' : 'Choose Photos'}
                 </Button>
               )}
             </div>
-          ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-social-green rounded-lg p-8 text-center cursor-pointer hover:border-social-light-green transition-colors"
-            >
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-social-green/10 flex items-center justify-center">
-                  <ImageIcon className="h-6 w-6 text-social-green" />
-                </div>
-                <p className="font-pixelated text-xs text-muted-foreground">
-                  {hasExistingPhotos ? 'Add more photos' : 'Tap to add photos'}
-                </p>
-                <p className="font-pixelated text-xs text-muted-foreground">
-                  {hasExistingPhotos 
-                    ? `${10 - existingPhotosCount} photos remaining`
-                    : 'Up to 10 photos, max 10MB each'
-                  }
-                </p>
-              </div>
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageSelect}
-            className="hidden"
-          />
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            {selectedImages.length > 0 ? (
-              <>
-                <Button
-                  onClick={handleClose}
-                  variant="outline"
-                  className="flex-1 font-pixelated text-xs h-8"
-                  disabled={uploading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
-                  disabled={uploading}
-                >
-                  {uploading ? 'Adding...' : 
-                   hasExistingPhotos ? `Add ${selectedImages.length} Photo${selectedImages.length > 1 ? 's' : ''}` :
-                   `Share Story (${selectedImages.length})`
-                  }
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
-              >
-                <Camera className="h-3 w-3 mr-1" />
-                {hasExistingPhotos ? 'Add More Photos' : 'Choose Photos'}
-              </Button>
-            )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={showDeleteConfirmation.show} 
+        onOpenChange={(open) => setShowDeleteConfirmation({ show: open, type: 'existing', index: -1 })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-pixelated">Delete Photo</AlertDialogTitle>
+            <AlertDialogDescription className="font-pixelated">
+              Are you sure you want to delete this photo? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-pixelated">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (showDeleteConfirmation.type === 'existing') {
+                  handleDeleteExistingPhoto(showDeleteConfirmation.index);
+                } else {
+                  removeNewImage(showDeleteConfirmation.index);
+                  setShowDeleteConfirmation({ show: false, type: 'existing', index: -1 });
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-pixelated"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
