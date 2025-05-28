@@ -24,7 +24,7 @@ interface Story {
   };
 }
 
-export function StoriesContainer() {
+const StoriesContainer = React.memo(() => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -111,12 +111,8 @@ export function StoriesContainer() {
       )
       .subscribe();
 
-    // Clean up expired stories every 5 minutes
-    const interval = setInterval(fetchStories, 300000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
     };
   }, [getCurrentUser, fetchStories]);
 
@@ -287,4 +283,8 @@ export function StoriesContainer() {
       />
     </>
   );
-}
+});
+
+StoriesContainer.displayName = 'StoriesContainer';
+
+export { StoriesContainer };

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, Eye, ChevronLeft, ChevronRight, Trash2, MoreHorizontal } from 'lucide-react';
+import { X, Eye, ChevronLeft, ChevronRight, Trash2, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -224,27 +224,15 @@ export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: S
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {isOwnStory && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-white hover:bg-white/20 h-6 w-6"
-                      >
-                        <MoreHorizontal className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-black/90 border-white/20">
-                      <DropdownMenuItem
-                        onClick={() => setShowDeleteConfirmation(true)}
-                        className="font-pixelated text-destructive hover:bg-white/10"
-                      >
-                        <Trash2 className="h-3 w-3 mr-2" />
-                        Delete This Photo
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                {isOwnStory && totalPhotos > 1 && (
+                  <Button
+                    onClick={() => setShowDeleteConfirmation(true)}
+                    size="icon"
+                    variant="ghost"
+                    className="text-white hover:bg-white/20 h-6 w-6"
+                  >
+                    <Settings className="h-3 w-3" />
+                  </Button>
                 )}
                 <Button
                   onClick={onClose}

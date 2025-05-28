@@ -25,6 +25,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MobileTab {
   path: string;
@@ -36,6 +46,7 @@ export function MobileHeader() {
   const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [open, setOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -94,141 +105,170 @@ export function MobileHeader() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-      <div className="container mx-auto px-3 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="lg:hidden h-8 w-8">
-                <Menu className="h-4 w-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 flex flex-col h-full">
-              {/* Header with close button */}
-              <div className="flex items-center justify-between p-4 border-b shrink-0">
-                <h2 className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
-                  Menu
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setOpen(false)}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
+    <>
+      <header className="fixed top-0 left-0 w-full z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="container mx-auto px-3 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="lg:hidden h-8 w-8">
+                  <Menu className="h-4 w-4" />
                 </Button>
-              </div>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72 flex flex-col h-full">
+                {/* Header with close button only */}
+                <div className="flex items-center justify-between p-4 border-b shrink-0">
+                  <h2 className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
+                    Menu
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setOpen(false)}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
 
-              {/* User info section */}
-              <div className="p-4 border-b shrink-0">
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-10 w-10">
-                    {user?.avatar ? (
-                      <AvatarImage src={user.avatar} alt={user?.name} />
-                    ) : (
-                      <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-sm">
-                        {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="font-pixelated text-sm">{user?.name || 'Guest'}</h3>
-                    <p className="text-xs text-muted-foreground font-pixelated">@{user?.username || 'guest'}</p>
+                {/* User info section */}
+                <div className="p-4 border-b shrink-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Avatar className="h-10 w-10">
+                      {user?.avatar ? (
+                        <AvatarImage src={user.avatar} alt={user?.name} />
+                      ) : (
+                        <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-sm">
+                          {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="flex-1">
+                      <h3 className="font-pixelated text-sm">{user?.name || 'Guest'}</h3>
+                      <p className="text-xs text-muted-foreground font-pixelated">@{user?.username || 'guest'}</p>
+                    </div>
                   </div>
+                  
+                  <UserSearch />
                 </div>
                 
-                <UserSearch />
-              </div>
-              
-              {/* Navigation section - this will expand to fill remaining space */}
-              <div className="p-4 flex-1">
-                <h4 className="text-sm font-pixelated mb-3">Main Navigation</h4>
-                <div className="space-y-2">
-                  {tabs.map((tab) => (
-                    <Link
-                      key={tab.path}
-                      to={tab.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated transition-colors ${
-                        isActive(tab.path) 
-                          ? 'bg-social-dark-green text-white'
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => setOpen(false)}
-                    >
-                      {tab.icon}
-                      <span>{tab.label}</span>
-                    </Link>
-                  ))}
+                {/* Navigation section - this will expand to fill remaining space */}
+                <div className="p-4 flex-1">
+                  <h4 className="text-sm font-pixelated mb-3">Main Navigation</h4>
+                  <div className="space-y-2">
+                    {tabs.map((tab) => (
+                      <Link
+                        key={tab.path}
+                        to={tab.path}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated transition-colors ${
+                          isActive(tab.path) 
+                            ? 'bg-social-dark-green text-white'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => setOpen(false)}
+                      >
+                        {tab.icon}
+                        <span>{tab.label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Footer with logout - pinned to bottom */}
-              <div className="p-4 border-t mt-auto shrink-0">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  <span>Sign Out</span>
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
+                {/* Footer with logout - pinned to bottom */}
+                <div className="p-4 border-t mt-auto shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated"
+                    onClick={() => {
+                      setOpen(false);
+                      setShowLogoutConfirm(true);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    <span>Sign Out</span>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            
+            <h1 className="font-pixelated text-base">
+              <span className="social-gradient bg-clip-text text-transparent">SocialChat</span>
+            </h1>
+          </div>
           
-          <h1 className="font-pixelated text-base">
-            <span className="social-gradient bg-clip-text text-transparent">SocialChat</span>
-          </h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="p-0 h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  {user?.avatar ? (
+                    <AvatarImage src={user.avatar} alt={user?.name} />
+                  ) : (
+                    <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
+                      {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-pixelated">My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <Link to="/profile">
+                <DropdownMenuItem className="font-pixelated">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+              </Link>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setShowLogoutConfirm(true)} 
+                className="text-destructive font-pixelated"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="p-0 h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
-                {user?.avatar ? (
-                  <AvatarImage src={user.avatar} alt={user?.name} />
-                ) : (
-                  <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-pixelated">My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <Link to="/profile">
-              <DropdownMenuItem className="font-pixelated">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
+        {/* Bottom Navigation - Icons Only */}
+        <nav className="grid grid-cols-5 border-t bg-background">
+          {tabs.map((tab) => (
+            <Link 
+              key={tab.path} 
+              to={tab.path} 
+              className={`flex flex-col items-center justify-center py-2 font-pixelated ${
+                isActive(tab.path) 
+                  ? 'text-white bg-social-dark-green' 
+                  : 'text-muted-foreground hover:bg-muted/50'
+              }`}
+            >
+              {tab.icon}
             </Link>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-destructive font-pixelated">
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      
-      {/* Bottom Navigation - Icons Only */}
-      <nav className="grid grid-cols-5 border-t bg-background">
-        {tabs.map((tab) => (
-          <Link 
-            key={tab.path} 
-            to={tab.path} 
-            className={`flex flex-col items-center justify-center py-2 font-pixelated ${
-              isActive(tab.path) 
-                ? 'text-white bg-social-dark-green' 
-                : 'text-muted-foreground hover:bg-muted/50'
-            }`}
-          >
-            {tab.icon}
-          </Link>
-        ))}
-      </nav>
-    </header>
+          ))}
+        </nav>
+      </header>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-pixelated">Sign Out</AlertDialogTitle>
+            <AlertDialogDescription className="font-pixelated">
+              Are you sure you want to sign out? You'll need to log in again to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-pixelated">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleLogout}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-pixelated"
+            >
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

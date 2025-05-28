@@ -3,7 +3,7 @@ import React from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, User, Calendar, Mail } from 'lucide-react';
+import { X, User, Calendar } from 'lucide-react';
 
 interface UserProfileDialogProps {
   open: boolean;
@@ -76,16 +76,6 @@ export function UserProfileDialog({ open, onOpenChange, user }: UserProfileDialo
                   <p className="font-pixelated text-sm text-foreground">{user.name}</p>
                 </div>
               </div>
-
-              {user.email && (
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <Mail className="h-4 w-4 text-social-blue" />
-                  <div>
-                    <p className="font-pixelated text-xs text-muted-foreground">Email</p>
-                    <p className="font-pixelated text-sm text-foreground">{user.email}</p>
-                  </div>
-                </div>
-              )}
 
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                 <Calendar className="h-4 w-4 text-social-purple" />

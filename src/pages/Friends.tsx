@@ -13,17 +13,17 @@ export function Friends() {
     <DashboardLayout>
       <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-2 border-b bg-background sticky top-0 z-10">
+        <div className="flex items-center justify-between p-3 border-b bg-background sticky top-0 z-10">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <h1 className="font-pixelated text-sm">Friends</h1>
+            <Users className="h-5 w-5 text-primary" />
+            <h1 className="font-pixelated text-base">Friends</h1>
           </div>
           <Button
             onClick={() => setShowInfo(true)}
             size="icon"
-            className="h-6 w-6 rounded-full bg-social-blue hover:bg-social-blue/90 text-white"
+            className="h-7 w-7 rounded-full bg-social-blue hover:bg-social-blue/90 text-white"
           >
-            <Info className="h-3 w-3" />
+            <Info className="h-4 w-4" />
           </Button>
         </div>
 
@@ -53,7 +53,7 @@ export function Friends() {
         </Dialog>
         
         {/* Content */}
-        <div className="h-[calc(100vh-120px)] overflow-y-auto p-2">
+        <div className="h-[calc(100vh-120px)] overflow-y-auto p-3">
           <FriendList />
         </div>
       </div>
