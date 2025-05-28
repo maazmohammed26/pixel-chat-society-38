@@ -8,7 +8,8 @@ import {
   Bell, 
   User,
   Menu,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -102,41 +103,52 @@ export function MobileHeader() {
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-4 w-72">
-              <div className="flex items-center gap-3 mb-6">
-                <Avatar className="h-8 w-8">
-                  {user?.avatar ? (
-                    <AvatarImage src={user.avatar} alt={user?.name} />
-                  ) : (
-                    <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
-                      {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="font-pixelated text-sm">{user?.name || 'Guest'}</h3>
-                  <p className="text-xs text-muted-foreground font-pixelated">@{user?.username || 'guest'}</p>
-                </div>
-                <Button 
+            <SheetContent side="left" className="p-0 w-72">
+              {/* Header with close button */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
+                  Menu
+                </h2>
+                <Button
                   variant="ghost"
                   size="icon"
-                  className="text-destructive h-8 w-8"
-                  onClick={handleLogout}
+                  onClick={() => setOpen(false)}
+                  className="h-8 w-8"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
+
+              {/* User info section */}
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="h-10 w-10">
+                    {user?.avatar ? (
+                      <AvatarImage src={user.avatar} alt={user?.name} />
+                    ) : (
+                      <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-sm">
+                        {user?.name ? user.name.substring(0, 2).toUpperCase() : 'GU'}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="flex-1">
+                    <h3 className="font-pixelated text-sm">{user?.name || 'Guest'}</h3>
+                    <p className="text-xs text-muted-foreground font-pixelated">@{user?.username || 'guest'}</p>
+                  </div>
+                </div>
+                
+                <UserSearch />
+              </div>
               
-              <UserSearch />
-              
-              <div className="mt-6">
+              {/* Navigation section */}
+              <div className="p-4 flex-1">
                 <h4 className="text-sm font-pixelated mb-3">Main Navigation</h4>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {tabs.map((tab) => (
                     <Link
                       key={tab.path}
                       to={tab.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated transition-colors ${
                         isActive(tab.path) 
                           ? 'bg-social-dark-green text-white'
                           : 'hover:bg-muted/50'
@@ -148,6 +160,18 @@ export function MobileHeader() {
                     </Link>
                   ))}
                 </div>
+              </div>
+
+              {/* Footer with logout */}
+              <div className="p-4 border-t mt-auto">
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  <span>Sign Out</span>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>
