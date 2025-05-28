@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { X, Eye, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { X, Eye, ChevronLeft, ChevronRight, Trash2, MoreHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -15,6 +16,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Story {
   id: string;
@@ -44,7 +51,6 @@ export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: S
   const [timeLeft, setTimeLeft] = useState(12);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressRef = useRef<NodeJS.Timeout | null>(null);
@@ -161,7 +167,6 @@ export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: S
         setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
       }
       
-      setShowDeleteOptions(false);
       setShowDeleteConfirmation(false);
     } catch (error) {
       console.error('Error deleting photo:', error);
@@ -220,14 +225,26 @@ export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: S
               </div>
               <div className="flex items-center gap-2">
                 {isOwnStory && (
-                  <Button
-                    onClick={() => setShowDeleteOptions(!showDeleteOptions)}
-                    size="icon"
-                    variant="ghost"
-                    className="text-white hover:bg-white/20 h-6 w-6"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-white hover:bg-white/20 h-6 w-6"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-black/90 border-white/20">
+                      <DropdownMenuItem
+                        onClick={() => setShowDeleteConfirmation(true)}
+                        className="font-pixelated text-destructive hover:bg-white/10"
+                      >
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        Delete This Photo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <Button
                   onClick={onClose}
@@ -239,20 +256,6 @@ export function StoryViewer({ story, onClose, currentUserId, onStoryUpdated }: S
                 </Button>
               </div>
             </div>
-
-            {/* Delete Options */}
-            {showDeleteOptions && isOwnStory && (
-              <div className="absolute top-16 right-2 z-20 bg-black/80 rounded-lg p-2">
-                <Button
-                  onClick={() => setShowDeleteConfirmation(true)}
-                  size="sm"
-                  variant="destructive"
-                  className="font-pixelated text-xs h-6"
-                >
-                  Delete This Photo
-                </Button>
-              </div>
-            )}
 
             {/* Navigation Areas */}
             <div className="absolute inset-0 flex">

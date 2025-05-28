@@ -103,9 +103,9 @@ export function MobileHeader() {
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
+            <SheetContent side="left" className="p-0 w-72 flex flex-col h-full">
               {/* Header with close button */}
-              <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center justify-between p-4 border-b shrink-0">
                 <h2 className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
                   Menu
                 </h2>
@@ -120,7 +120,7 @@ export function MobileHeader() {
               </div>
 
               {/* User info section */}
-              <div className="p-4 border-b">
+              <div className="p-4 border-b shrink-0">
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar className="h-10 w-10">
                     {user?.avatar ? (
@@ -140,7 +140,7 @@ export function MobileHeader() {
                 <UserSearch />
               </div>
               
-              {/* Navigation section */}
+              {/* Navigation section - this will expand to fill remaining space */}
               <div className="p-4 flex-1">
                 <h4 className="text-sm font-pixelated mb-3">Main Navigation</h4>
                 <div className="space-y-2">
@@ -162,8 +162,8 @@ export function MobileHeader() {
                 </div>
               </div>
 
-              {/* Footer with logout */}
-              <div className="p-4 border-t mt-auto">
+              {/* Footer with logout - pinned to bottom */}
+              <div className="p-4 border-t mt-auto shrink-0">
                 <Button 
                   variant="ghost" 
                   className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated"
@@ -202,12 +202,6 @@ export function MobileHeader() {
               <DropdownMenuItem className="font-pixelated">
                 <User className="mr-2 h-4 w-4" />
                 Profile
-              </DropdownMenuItem>
-            </Link>
-            <Link to="/settings">
-              <DropdownMenuItem className="font-pixelated">
-                <User className="mr-2 h-4 w-4" />
-                Settings
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />
