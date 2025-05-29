@@ -39,6 +39,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
     type: 'existing' | 'new';
     index: number;
   }>({ show: false, type: 'existing', index: -1 });
+  const [showManageStory, setShowManageStory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -208,6 +209,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
     previewUrls.forEach(url => URL.revokeObjectURL(url));
     setSelectedImages([]);
     setPreviewUrls([]);
+    setShowManageStory(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -218,70 +220,69 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
     onOpenChange(false);
   };
 
+  const handleManageStory = () => {
+    setShowManageStory(true);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-md mx-auto max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
-                {hasExistingPhotos ? 'Add More Photos' : 'Add to Your Story'}
-              </DialogTitle>
-              
-              {/* Story Settings - Only show if user has existing photos */}
-              {hasExistingPhotos && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                    >
-                      <Settings className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => {/* Story settings can be expanded here */}}
-                      className="font-pixelated text-xs"
-                    >
-                      Manage Story
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+            <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
+              {hasExistingPhotos ? 'Add More Photos' : 'Add to Your Story'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
-            {/* User Info */}
-            <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8">
-                {currentUser?.avatar ? (
-                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                ) : (
-                  <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
-                    {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <span className="font-pixelated text-xs">{currentUser?.name}</span>
+            {/* User Info with Settings Icon */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Avatar className="w-8 h-8">
+                  {currentUser?.avatar ? (
+                    <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                  ) : (
+                    <AvatarFallback className="bg-social-dark-green text-white font-pixelated text-xs">
+                      {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <span className="font-pixelated text-xs">{currentUser?.name}</span>
+              </div>
+              
+              {/* Settings Icon - Only show if user has existing photos */}
+              {hasExistingPhotos && (
+                <Button
+                  onClick={handleManageStory}
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 hover:bg-gray-100"
+                >
+                  <Settings className="h-3 w-3" />
+                </Button>
+              )}
             </div>
 
-            {/* Existing Photos Preview with Delete Options */}
-            {hasExistingPhotos && (
-              <div className="space-y-2">
+            {/* Manage Story Section */}
+            {showManageStory && hasExistingPhotos && (
+              <div className="space-y-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <p className="font-pixelated text-xs text-muted-foreground">
-                    Current story ({existingPhotosCount} photo{existingPhotosCount > 1 ? 's' : ''})
-                  </p>
+                  <p className="font-pixelated text-xs font-medium">Manage Story Photos</p>
+                  <Button
+                    onClick={() => setShowManageStory(false)}
+                    size="icon"
+                    variant="ghost"
+                    className="h-4 w-4"
+                  >
+                    <X className="h-2 w-2" />
+                  </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
                   {existingStory.photo_urls.map((url: string, index: number) => (
                     <div key={index} className="relative group">
                       <img
                         src={url}
-                        alt={`Existing ${index + 1}`}
+                        alt={`Story photo ${index + 1}`}
                         className="w-full h-16 object-cover rounded"
                       />
                       <Button
@@ -296,6 +297,34 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
                       >
                         <Trash2 className="h-2 w-2" />
                       </Button>
+                    </div>
+                  ))}
+                </div>
+                <p className="font-pixelated text-xs text-muted-foreground">
+                  Tap photos to delete them individually
+                </p>
+              </div>
+            )}
+
+            {/* Existing Photos Preview (when not in manage mode) */}
+            {hasExistingPhotos && !showManageStory && (
+              <div className="space-y-2">
+                <p className="font-pixelated text-xs text-muted-foreground">
+                  Current story ({existingPhotosCount} photo{existingPhotosCount > 1 ? 's' : ''})
+                </p>
+                <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
+                  {existingStory.photo_urls.slice(0, 6).map((url: string, index: number) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={url}
+                        alt={`Existing ${index + 1}`}
+                        className="w-full h-16 object-cover rounded"
+                      />
+                      {existingPhotosCount > 6 && index === 5 && (
+                        <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                          <span className="text-white font-pixelated text-xs">+{existingPhotosCount - 6}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -438,7 +467,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-pixelated"
             >
               Delete
-            </AlertDialogAction>
+            </DialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
