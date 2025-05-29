@@ -8,12 +8,12 @@ import {
   Bell, 
   User,
   Menu,
-  LogOut,
-  X
+  LogOut
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { UserSearch } from './UserSearch';
 import { useToast } from '@/hooks/use-toast';
@@ -83,7 +83,6 @@ export function MobileHeader() {
       
       if (error) throw error;
       
-      // Force redirect to login page
       window.location.href = '/login';
     } catch (error: any) {
       toast({
@@ -106,35 +105,27 @@ export function MobileHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 w-full z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+      <header className="fixed top-0 left-0 w-full z-50 bg-background/95 backdrop-blur-sm border-b border-border animate-fade-in">
         <div className="container mx-auto px-3 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="lg:hidden h-8 w-8">
+                <Button variant="outline" size="icon" className="lg:hidden h-8 w-8 transition-all duration-200 hover:scale-105">
                   <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72 flex flex-col h-full">
-                {/* Header with close button only */}
-                <div className="flex items-center justify-between p-4 border-b shrink-0">
+              <SheetContent side="left" className="p-0 w-72 flex flex-col h-full animate-slide-in-right">
+                {/* Header */}
+                <div className="p-4 border-b shrink-0">
                   <h2 className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
                     Menu
                   </h2>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setOpen(false)}
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
 
                 {/* User info section */}
-                <div className="p-4 border-b shrink-0">
+                <div className="p-4 border-b shrink-0 animate-fade-in">
                   <div className="flex items-center gap-3 mb-4">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 transition-all duration-200 hover:scale-105">
                       {user?.avatar ? (
                         <AvatarImage src={user.avatar} alt={user?.name} />
                       ) : (
@@ -149,10 +140,16 @@ export function MobileHeader() {
                     </div>
                   </div>
                   
-                  <UserSearch />
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      placeholder="Find Friends"
+                      className="font-pixelated text-xs h-8 pl-3 pr-3 transition-all duration-200 focus:scale-105"
+                    />
+                  </div>
                 </div>
                 
-                {/* Navigation section - this will expand to fill remaining space */}
+                {/* Navigation section */}
                 <div className="p-4 flex-1">
                   <h4 className="text-sm font-pixelated mb-3">Main Navigation</h4>
                   <div className="space-y-2">
@@ -160,7 +157,7 @@ export function MobileHeader() {
                       <Link
                         key={tab.path}
                         to={tab.path}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated transition-colors ${
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-pixelated transition-all duration-200 hover:scale-105 ${
                           isActive(tab.path) 
                             ? 'bg-social-dark-green text-white'
                             : 'hover:bg-muted/50'
@@ -174,11 +171,11 @@ export function MobileHeader() {
                   </div>
                 </div>
 
-                {/* Footer with logout - pinned to bottom */}
+                {/* Footer with logout */}
                 <div className="p-4 border-t mt-auto shrink-0">
                   <Button 
                     variant="ghost" 
-                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated"
+                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 font-pixelated transition-all duration-200 hover:scale-105"
                     onClick={() => {
                       setOpen(false);
                       setShowLogoutConfirm(true);
@@ -198,7 +195,7 @@ export function MobileHeader() {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="p-0 h-8 w-8 rounded-full">
+              <Button variant="ghost" className="p-0 h-8 w-8 rounded-full transition-all duration-200 hover:scale-105">
                 <Avatar className="h-8 w-8">
                   {user?.avatar ? (
                     <AvatarImage src={user.avatar} alt={user?.name} />
@@ -210,11 +207,11 @@ export function MobileHeader() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 animate-scale-in">
               <DropdownMenuLabel className="font-pixelated">My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <Link to="/profile">
-                <DropdownMenuItem className="font-pixelated">
+                <DropdownMenuItem className="font-pixelated transition-all duration-200 hover:bg-muted">
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
@@ -222,7 +219,7 @@ export function MobileHeader() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => setShowLogoutConfirm(true)} 
-                className="text-destructive font-pixelated"
+                className="text-destructive font-pixelated transition-all duration-200 hover:bg-destructive/10"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
@@ -231,13 +228,13 @@ export function MobileHeader() {
           </DropdownMenu>
         </div>
         
-        {/* Bottom Navigation - Icons Only */}
+        {/* Bottom Navigation */}
         <nav className="grid grid-cols-5 border-t bg-background">
           {tabs.map((tab) => (
             <Link 
               key={tab.path} 
               to={tab.path} 
-              className={`flex flex-col items-center justify-center py-2 font-pixelated ${
+              className={`flex flex-col items-center justify-center py-2 font-pixelated transition-all duration-200 hover:scale-105 ${
                 isActive(tab.path) 
                   ? 'text-white bg-social-dark-green' 
                   : 'text-muted-foreground hover:bg-muted/50'
@@ -251,7 +248,7 @@ export function MobileHeader() {
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="animate-scale-in">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-pixelated">Sign Out</AlertDialogTitle>
             <AlertDialogDescription className="font-pixelated">
