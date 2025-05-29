@@ -293,17 +293,17 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)]">
+      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)] animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b bg-background sticky top-0 z-10">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-3 border-b bg-background sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
-            <h1 className="font-pixelated text-lg font-bold">Messages</h1>
+            <h1 className="font-pixelated text-base font-bold">Messages</h1>
           </div>
           <Button
             onClick={() => setShowInfo(true)}
             size="icon"
-            className="h-8 w-8 rounded-full bg-social-blue hover:bg-social-blue/90 text-white"
+            className="h-7 w-7 rounded-full bg-social-blue hover:bg-social-blue/90 text-white hover-scale"
           >
             <Info className="h-4 w-4" />
           </Button>
@@ -311,22 +311,22 @@ export function Messages() {
 
         {/* Info Dialog */}
         <Dialog open={showInfo} onOpenChange={setShowInfo}>
-          <DialogContent className="max-w-sm mx-auto">
+          <DialogContent className="max-w-sm mx-auto animate-in zoom-in-95 duration-200">
             <DialogHeader>
-              <DialogTitle className="font-pixelated text-lg social-gradient bg-clip-text text-transparent">
+              <DialogTitle className="font-pixelated text-sm social-gradient bg-clip-text text-transparent">
                 Real-time Messaging
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <p className="font-pixelated text-sm text-muted-foreground leading-relaxed">
+            <div className="space-y-2">
+              <p className="font-pixelated text-xs text-muted-foreground leading-relaxed">
                 Chat with your friends in real-time. Messages are automatically updated without refreshing the page.
               </p>
-              <p className="font-pixelated text-sm text-muted-foreground leading-relaxed">
+              <p className="font-pixelated text-xs text-muted-foreground leading-relaxed">
                 Select a friend from your contacts to start a conversation. Your friends list updates every 30 seconds.
               </p>
               <Button 
                 onClick={() => setShowInfo(false)}
-                className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-sm"
+                className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-6 hover-scale"
               >
                 Got it!
               </Button>
@@ -335,7 +335,7 @@ export function Messages() {
         </Dialog>
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden h-[calc(100vh-140px)]">
+        <div className="flex-1 flex overflow-hidden h-[calc(100vh-120px)]">
           {/* Friends list */}
           <div className={`w-full md:w-1/3 border-r overflow-hidden ${selectedFriend ? 'hidden md:block' : ''}`}>
             <div className="p-3 border-b bg-muted/30">
@@ -433,34 +433,43 @@ export function Messages() {
                 </div>
                 
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 p-3">
                   {messages.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {messages.map((message) => (
                         <div 
                           key={message.id}
-                          className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                          className={`flex gap-2 animate-fade-in ${
+                            message.sender_id === currentUser?.id ? 'flex-row-reverse' : 'flex-row'
+                          }`}
                         >
-                          <div className={`flex gap-2 max-w-[80%] ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}>
-                            <Avatar className="h-6 w-6">
-                              {message.sender?.avatar ? (
-                                <AvatarImage src={message.sender.avatar} />
-                              ) : (
-                                <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                  {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                            <div className={`p-3 rounded-lg text-sm font-pixelated ${
-                              message.sender_id === currentUser?.id 
-                                ? 'bg-primary text-white ml-2' 
-                                : 'bg-muted mr-2'
-                            }`}>
-                              <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
-                              <p className="text-xs opacity-70 mt-2">
-                                {format(new Date(message.created_at), 'HH:mm')}
-                              </p>
+                          <Avatar className="h-7 w-7 flex-shrink-0">
+                            {message.sender?.avatar ? (
+                              <AvatarImage src={message.sender.avatar} />
+                            ) : (
+                              <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
+                                {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          
+                          <div className={`flex flex-col max-w-[75%] ${
+                            message.sender_id === currentUser?.id ? 'items-end' : 'items-start'
+                          }`}>
+                            <div 
+                              className={`p-2.5 rounded-2xl text-sm font-pixelated leading-relaxed break-words ${
+                                message.sender_id === currentUser?.id 
+                                  ? 'bg-social-blue text-white rounded-br-md' 
+                                  : 'bg-muted text-foreground rounded-bl-md'
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap">{message.content}</p>
                             </div>
+                            <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
+                              message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
+                            }`}>
+                              {format(new Date(message.created_at), 'HH:mm')}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -477,25 +486,25 @@ export function Messages() {
                 </ScrollArea>
                 
                 {/* Message input */}
-                <div className="p-4 border-t bg-background">
-                  <div className="flex gap-3">
+                <div className="p-3 border-t bg-background">
+                  <div className="flex gap-2">
                     <Textarea 
                       placeholder="Type a message..." 
-                      className="flex-1 min-h-[48px] max-h-[120px] font-pixelated text-sm resize-none"
+                      className="flex-1 min-h-[44px] max-h-[120px] font-pixelated text-sm resize-none border-2 focus:border-social-green transition-colors"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[48px] w-[48px] p-0 flex-shrink-0"
+                      className="bg-social-blue hover:bg-social-blue/90 text-white font-pixelated h-[44px] w-[44px] p-0 flex-shrink-0 rounded-full hover-scale"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 font-pixelated">
+                  <p className="text-xs text-muted-foreground mt-1 font-pixelated">
                     Press Enter to send, Shift+Enter for new line
                   </p>
                 </div>

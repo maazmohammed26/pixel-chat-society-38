@@ -74,30 +74,36 @@ export function UserSearch() {
     if (!currentUserId) return;
 
     try {
+      // Check if friendship already exists
+      const { data: existingFriend } = await supabase
+        .from('friends')
+        .select('id')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUserId})`)
+        .single();
+
+      if (existingFriend) {
+        toast({
+          variant: 'destructive',
+          title: 'Request already sent',
+          description: 'You have already sent a friend request to this user',
+        });
+        return;
+      }
+
       const { error } = await supabase
-        .from('friend_requests')
+        .from('friends')
         .insert({
-          requester_id: currentUserId,
-          requested_id: userId,
+          sender_id: currentUserId,
+          receiver_id: userId,
           status: 'pending'
         });
 
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          toast({
-            variant: 'destructive',
-            title: 'Request already sent',
-            description: 'You have already sent a friend request to this user',
-          });
-        } else {
-          throw error;
-        }
-      } else {
-        toast({
-          title: 'Friend request sent!',
-          description: 'Your friend request has been sent successfully',
-        });
-      }
+      if (error) throw error;
+
+      toast({
+        title: 'Friend request sent!',
+        description: 'Your friend request has been sent successfully',
+      });
     } catch (error) {
       console.error('Error sending friend request:', error);
       toast({
