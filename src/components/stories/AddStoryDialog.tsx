@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,12 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface AddStoryDialogProps {
   open: boolean;
@@ -113,6 +108,11 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
 
       onStoryAdded(); // Refresh the stories
       setShowDeleteConfirmation({ show: false, type: 'existing', index: -1 });
+
+      // If no photos left, close manage story mode
+      if (existingStory.photo_urls.length === 1) {
+        setShowManageStory(false);
+      }
 
     } catch (error) {
       console.error('Error deleting photo:', error);
@@ -220,8 +220,8 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
     onOpenChange(false);
   };
 
-  const handleManageStory = () => {
-    setShowManageStory(true);
+  const toggleManageStory = () => {
+    setShowManageStory(prev => !prev);
   };
 
   return (
@@ -253,37 +253,37 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
               {/* Settings Icon - Only show if user has existing photos */}
               {hasExistingPhotos && (
                 <Button
-                  onClick={handleManageStory}
+                  onClick={toggleManageStory}
                   size="icon"
                   variant="ghost"
-                  className="h-6 w-6 hover:bg-gray-100"
+                  className="h-7 w-7 hover:bg-gray-100 transition-colors"
                 >
-                  <Settings className="h-3 w-3" />
+                  <Settings className="h-4 w-4" />
                 </Button>
               )}
             </div>
 
             {/* Manage Story Section */}
             {showManageStory && hasExistingPhotos && (
-              <div className="space-y-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50 animate-in slide-in-from-top-2 duration-200">
                 <div className="flex items-center justify-between">
-                  <p className="font-pixelated text-xs font-medium">Manage Story Photos</p>
+                  <p className="font-pixelated text-sm font-medium text-gray-800">Manage Story Photos</p>
                   <Button
                     onClick={() => setShowManageStory(false)}
                     size="icon"
                     variant="ghost"
-                    className="h-4 w-4"
+                    className="h-6 w-6 hover:bg-gray-200 transition-colors"
                   >
-                    <X className="h-2 w-2" />
+                    <X className="h-3 w-3" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
+                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                   {existingStory.photo_urls.map((url: string, index: number) => (
                     <div key={index} className="relative group">
                       <img
                         src={url}
                         alt={`Story photo ${index + 1}`}
-                        className="w-full h-16 object-cover rounded"
+                        className="w-full h-20 object-cover rounded-md transition-transform group-hover:scale-105"
                       />
                       <Button
                         onClick={() => setShowDeleteConfirmation({ 
@@ -293,15 +293,15 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
                         })}
                         size="icon"
                         variant="ghost"
-                        className="absolute top-0 right-0 h-4 w-4 bg-black/50 text-white hover:bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 h-6 w-6 bg-black/60 text-white hover:bg-red-500/90 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-full"
                       >
-                        <Trash2 className="h-2 w-2" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   ))}
                 </div>
-                <p className="font-pixelated text-xs text-muted-foreground">
-                  Tap photos to delete them individually
+                <p className="font-pixelated text-xs text-muted-foreground text-center">
+                  Hover over photos to delete them individually
                 </p>
               </div>
             )}
@@ -339,11 +339,11 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
                 </p>
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {previewUrls.map((url, index) => (
-                    <div key={index} className="relative">
+                    <div key={index} className="relative group">
                       <img
                         src={url}
                         alt={`New photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
+                        className="w-full h-32 object-cover rounded-lg transition-transform group-hover:scale-105"
                       />
                       <Button
                         onClick={() => setShowDeleteConfirmation({ 
@@ -353,7 +353,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
                         })}
                         size="icon"
                         variant="ghost"
-                        className="absolute top-1 right-1 h-6 w-6 bg-black/50 text-white hover:bg-red-500/80"
+                        className="absolute top-1 right-1 h-6 w-6 bg-black/60 text-white hover:bg-red-500/90 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-full"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -365,7 +365,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
                   <Button
                     onClick={() => fileInputRef.current?.click()}
                     variant="outline"
-                    className="w-full font-pixelated text-xs h-8"
+                    className="w-full font-pixelated text-xs h-8 hover:bg-gray-50 transition-colors"
                     disabled={uploading}
                   >
                     <Plus className="h-3 w-3 mr-1" />
@@ -376,21 +376,23 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-social-green rounded-lg p-8 text-center cursor-pointer hover:border-social-light-green transition-colors"
+                className="border-2 border-dashed border-social-green rounded-lg p-8 text-center cursor-pointer hover:border-social-light-green transition-all duration-200 hover:bg-green-50/50"
               >
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-social-green/10 flex items-center justify-center">
                     <ImageIcon className="h-6 w-6 text-social-green" />
                   </div>
-                  <p className="font-pixelated text-xs text-muted-foreground">
-                    {hasExistingPhotos ? 'Add more photos' : 'Tap to add photos'}
-                  </p>
-                  <p className="font-pixelated text-xs text-muted-foreground">
-                    {hasExistingPhotos 
-                      ? `${10 - existingPhotosCount} photos remaining`
-                      : 'Up to 10 photos, max 10MB each'
-                    }
-                  </p>
+                  <div>
+                    <p className="font-pixelated text-sm font-medium">
+                      {hasExistingPhotos ? 'Add more photos' : 'Tap to add photos'}
+                    </p>
+                    <p className="font-pixelated text-xs text-muted-foreground mt-1">
+                      {hasExistingPhotos 
+                        ? `${10 - existingPhotosCount} photos remaining`
+                        : 'Up to 10 photos, max 10MB each'
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -405,20 +407,20 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
             />
 
             {/* Action Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               {selectedImages.length > 0 ? (
                 <>
                   <Button
                     onClick={handleClose}
                     variant="outline"
-                    className="flex-1 font-pixelated text-xs h-8"
+                    className="flex-1 font-pixelated text-xs h-9 hover:bg-gray-50 transition-colors"
                     disabled={uploading}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleUpload}
-                    className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
+                    className="flex-1 bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-9 transition-colors"
                     disabled={uploading}
                   >
                     {uploading ? 'Adding...' : 
@@ -430,9 +432,9 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
               ) : (
                 <Button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-8"
+                  className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated text-xs h-9 transition-colors"
                 >
-                  <Camera className="h-3 w-3 mr-1" />
+                  <Camera className="h-3 w-3 mr-2" />
                   {hasExistingPhotos ? 'Add More Photos' : 'Choose Photos'}
                 </Button>
               )}
@@ -467,7 +469,7 @@ export function AddStoryDialog({ open, onOpenChange, onStoryAdded, currentUser, 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-pixelated"
             >
               Delete
-            </DialogAction>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 
 export function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -17,15 +16,81 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'checking' | 'available' | 'taken' | 'idle'>('idle');
+  const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | 'idle'>('idle');
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Check username availability
+  useEffect(() => {
+    if (username.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setUsernameStatus('checking');
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', username.toLowerCase())
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          // No rows returned - username is available
+          setUsernameStatus('available');
+        } else if (data) {
+          // Username exists
+          setUsernameStatus('taken');
+        }
+      } catch (error) {
+        setUsernameStatus('idle');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [username]);
+
+  // Check email availability
+  useEffect(() => {
+    if (!email.includes('@')) {
+      setEmailStatus('idle');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setEmailStatus('checking');
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: 'dummy_password_for_check'
+        });
+
+        if (error?.message?.includes('Invalid login credentials')) {
+          // Email not found - available
+          setEmailStatus('available');
+        } else if (error?.message?.includes('Email not confirmed')) {
+          // Email exists but not confirmed
+          setEmailStatus('taken');
+        } else {
+          // Other error or success means email exists
+          setEmailStatus('taken');
+        }
+      } catch (error) {
+        setEmailStatus('idle');
+      }
+    }, 800);
+
+    return () => clearTimeout(timeoutId);
+  }, [email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Basic validation
+      // Final validation
       if (!email || !password || !name || !username) {
         throw new Error('Please fill in all fields');
       }
@@ -34,15 +99,12 @@ export function RegisterForm() {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Check if username is already taken
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', username.toLowerCase())
-        .single();
-
-      if (existingUser) {
+      if (usernameStatus === 'taken') {
         throw new Error('Username is already taken');
+      }
+
+      if (emailStatus === 'taken') {
+        throw new Error('An account with this email already exists');
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -135,28 +197,78 @@ export function RegisterForm() {
           
           <div className="space-y-2">
             <Label htmlFor="username" className="font-pixelated">Username</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder="Choose a username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase())}
-              required
-              className="font-pixelated"
-            />
+            <div className="relative">
+              <Input
+                id="username"
+                type="text"
+                placeholder="Choose a username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                required
+                className="font-pixelated pr-10"
+              />
+              {username.length >= 3 && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  {usernameStatus === 'checking' && (
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                  )}
+                  {usernameStatus === 'available' && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
+                  {usernameStatus === 'taken' && (
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  )}
+                </div>
+              )}
+            </div>
+            {username.length >= 3 && (
+              <p className={`font-pixelated text-xs ${
+                usernameStatus === 'available' ? 'text-green-600' :
+                usernameStatus === 'taken' ? 'text-red-600' : 'text-gray-500'
+              }`}>
+                {usernameStatus === 'checking' && 'Checking availability...'}
+                {usernameStatus === 'available' && 'Username is available'}
+                {usernameStatus === 'taken' && 'Username is already taken'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email" className="font-pixelated">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="font-pixelated"
-            />
+            <div className="relative">
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="font-pixelated pr-10"
+              />
+              {email.includes('@') && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  {emailStatus === 'checking' && (
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                  )}
+                  {emailStatus === 'available' && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
+                  {emailStatus === 'taken' && (
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  )}
+                </div>
+              )}
+            </div>
+            {email.includes('@') && (
+              <p className={`font-pixelated text-xs ${
+                emailStatus === 'available' ? 'text-green-600' :
+                emailStatus === 'taken' ? 'text-red-600' : 'text-gray-500'
+              }`}>
+                {emailStatus === 'checking' && 'Checking availability...'}
+                {emailStatus === 'available' && 'Email is available'}
+                {emailStatus === 'taken' && 'Email is already registered'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -185,12 +297,19 @@ export function RegisterForm() {
                 )}
               </Button>
             </div>
+            {password.length > 0 && (
+              <p className={`font-pixelated text-xs ${
+                password.length >= 6 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                Password must be at least 6 characters
+              </p>
+            )}
           </div>
 
           <Button 
             type="submit" 
             className="w-full bg-social-green hover:bg-social-light-green text-white font-pixelated" 
-            disabled={loading}
+            disabled={loading || usernameStatus === 'taken' || emailStatus === 'taken' || usernameStatus === 'checking' || emailStatus === 'checking'}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </Button>
