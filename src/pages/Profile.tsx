@@ -6,7 +6,9 @@ import UserProfile from '@/components/dashboard/UserProfile';
 export function Profile() {
   return (
     <DashboardLayout>
-      <UserProfile />
+      <div className="animate-fade-in">
+        <UserProfile />
+      </div>
     </DashboardLayout>
   );
 }
