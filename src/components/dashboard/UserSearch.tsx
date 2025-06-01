@@ -74,11 +74,27 @@ export function UserSearch() {
     if (!currentUserId) return;
 
     try {
+      // Check if friendship already exists using the correct table and column names
+      const { data: existingFriend } = await supabase
+        .from('friends')
+        .select('id')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      if (existingFriend) {
+        toast({
+          variant: 'destructive',
+          title: 'Already connected',
+          description: 'You are already friends with this user or have a pending request',
+        });
+        return;
+      }
+
       const { error } = await supabase
-        .from('friend_requests')
+        .from('friends')
         .insert({
-          requester_id: currentUserId,
-          requested_id: userId,
+          sender_id: currentUserId,
+          receiver_id: userId,
           status: 'pending'
         });
 
