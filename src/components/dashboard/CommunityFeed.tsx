@@ -69,6 +69,17 @@ export function CommunityFeed() {
   useEffect(() => {
     getCurrentUser();
     fetchPosts();
+
+    // Listen for new posts
+    const handlePostCreated = () => {
+      fetchPosts();
+    };
+
+    window.addEventListener('postCreated', handlePostCreated);
+
+    return () => {
+      window.removeEventListener('postCreated', handlePostCreated);
+    };
   }, []);
 
   const getCurrentUser = async () => {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageIcon, Send } from 'lucide-react';
+import { ImageIcon, Send, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,6 +36,26 @@ export function PostCreator() {
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid file type',
+          description: 'Please select an image file',
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Please select an image smaller than 5MB',
+        });
+        return;
+      }
+
       setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -45,9 +65,34 @@ export function PostCreator() {
     }
   };
 
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Reset the file input
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   const handlePost = async () => {
-    if (!content.trim() && !imageFile) return;
-    if (!currentUser) return;
+    if (!content.trim() && !imageFile) {
+      toast({
+        variant: 'destructive',
+        title: 'Empty post',
+        description: 'Please add some content or an image',
+      });
+      return;
+    }
+    
+    if (!currentUser) {
+      toast({
+        variant: 'destructive',
+        title: 'Not authenticated',
+        description: 'Please log in to create a post',
+      });
+      return;
+    }
 
     setIsPosting(true);
     try {
@@ -56,20 +101,29 @@ export function PostCreator() {
       // Upload image if selected
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `posts/${fileName}`;
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        const filePath = fileName;
+
+        console.log('Uploading image to:', filePath);
 
         const { error: uploadError } = await supabase.storage
           .from('post-images')
-          .upload(filePath, imageFile);
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error(`Failed to upload image: ${uploadError.message}`);
+        }
 
         const { data } = supabase.storage
           .from('post-images')
           .getPublicUrl(filePath);
 
         imageUrl = data.publicUrl;
+        console.log('Image uploaded successfully:', imageUrl);
       }
 
       // Create post
@@ -81,26 +135,37 @@ export function PostCreator() {
           user_id: currentUser.id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Post creation error:', error);
+        throw new Error(`Failed to create post: ${error.message}`);
+      }
 
       // Reset form
       setContent('');
       setImageFile(null);
       setImagePreview(null);
       
+      // Reset file input
+      const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
       toast({
         title: 'Post created!',
         description: 'Your post has been shared with the community',
       });
 
-      // Refresh the page to show new post
-      window.location.reload();
-    } catch (error) {
+      // Instead of reloading the page, we'll emit a custom event
+      // The CommunityFeed component can listen for this event to refresh
+      window.dispatchEvent(new CustomEvent('postCreated'));
+
+    } catch (error: any) {
       console.error('Error creating post:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create post',
+        description: error.message || 'Failed to create post',
       });
     } finally {
       setIsPosting(false);
@@ -136,15 +201,12 @@ export function PostCreator() {
                   className="w-full rounded-lg object-cover max-h-64"
                 />
                 <Button
-                  onClick={() => {
-                    setImageFile(null);
-                    setImagePreview(null);
-                  }}
+                  onClick={handleRemoveImage}
                   size="sm"
                   variant="destructive"
                   className="absolute top-2 right-2 h-6 w-6 p-0"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             )}
