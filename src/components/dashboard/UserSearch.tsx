@@ -83,7 +83,7 @@ export function UserSearch() {
         });
 
       if (error) {
-        if (error.code === '23505') { // Unique constraint violation
+        if (error.code === '23505') {
           toast({
             variant: 'destructive',
             title: 'Request already sent',
