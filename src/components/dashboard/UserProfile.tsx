@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +8,7 @@ import { Camera, Edit, Save, X, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ThemeSwitcher } from '@/components/themes/ThemeSwitcher';
 
 interface UserProfileData {
   id: string;
@@ -222,6 +222,7 @@ export default function UserProfile() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-3 p-3">
+      {/* Profile Card */}
       <Card className="card-gradient">
         <CardHeader className="text-center pb-3">
           <div className="relative inline-block">
@@ -334,6 +335,9 @@ export default function UserProfile() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Theme Switcher */}
+      <ThemeSwitcher />
 
       {/* Copyright */}
       <Card className="card-gradient">
