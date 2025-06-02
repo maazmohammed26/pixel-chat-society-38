@@ -16,6 +16,8 @@ interface Friend {
   name: string;
   username: string;
   avatar: string;
+  lastMessageTime?: string;
+  hasUnseenMessages?: boolean;
 }
 
 interface Message {
@@ -83,15 +85,42 @@ export function Messages() {
             .single();
           
           if (friendProfile && friendProfile.id) {
+            // Get the latest message with this friend
+            const { data: latestMessage } = await supabase
+              .from('messages')
+              .select('created_at, sender_id, read')
+              .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            // Check for unseen messages
+            const { data: unseenMessages } = await supabase
+              .from('messages')
+              .select('id')
+              .eq('sender_id', friendId)
+              .eq('receiver_id', user.id)
+              .eq('read', false);
+
             formattedFriends.push({
               id: friendProfile.id,
               name: friendProfile.name || 'User',
               username: friendProfile.username || 'guest',
-              avatar: friendProfile.avatar || ''
+              avatar: friendProfile.avatar || '',
+              lastMessageTime: latestMessage?.created_at,
+              hasUnseenMessages: (unseenMessages?.length || 0) > 0
             });
           }
         }
       }
+
+      // Sort friends by latest message activity
+      formattedFriends.sort((a, b) => {
+        if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+        if (!a.lastMessageTime) return 1;
+        if (!b.lastMessageTime) return -1;
+        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      });
 
       setFriends(formattedFriends);
     } catch (error) {
@@ -178,6 +207,23 @@ export function Messages() {
           if (exists) return prevMessages;
           return [...prevMessages, newMessageWithSender];
         });
+
+        // Update friend's last message time and move to top
+        setFriends(prevFriends => {
+          const updatedFriends = prevFriends.map(friend => 
+            friend.id === selectedFriend.id 
+              ? { ...friend, lastMessageTime: data.created_at }
+              : friend
+          );
+          
+          // Sort again to move the friend to top
+          return updatedFriends.sort((a, b) => {
+            if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+            if (!a.lastMessageTime) return 1;
+            if (!b.lastMessageTime) return -1;
+            return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+          });
+        });
       }
       
       scrollToBottom();
@@ -245,6 +291,17 @@ export function Messages() {
     if (selectedFriend && currentUser) {
       fetchMessages(selectedFriend.id);
       
+      // Mark messages as read when opening conversation
+      const markAsRead = async () => {
+        await supabase
+          .from('messages')
+          .update({ read: true })
+          .eq('sender_id', selectedFriend.id)
+          .eq('receiver_id', currentUser.id)
+          .eq('read', false);
+      };
+      markAsRead();
+      
       const channel = supabase
         .channel(`messages-${selectedFriend.id}-${currentUser.id}`)
         .on('postgres_changes', 
@@ -286,6 +343,9 @@ export function Messages() {
                   });
                 }
               }
+              
+              // Update friends list to reflect new message activity
+              fetchFriends();
             } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
               fetchMessages(selectedFriend.id);
             }
@@ -342,7 +402,7 @@ export function Messages() {
                   {friends.map(friend => (
                     <div
                       key={friend.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover-scale ${
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover-scale relative ${
                         selectedFriend?.id === friend.id 
                           ? 'bg-primary text-white' 
                           : 'hover:bg-muted/50'
@@ -352,15 +412,20 @@ export function Messages() {
                         fetchMessages(friend.id);
                       }}
                     >
-                      <Avatar className="h-10 w-10">
-                        {friend.avatar ? (
-                          <AvatarImage src={friend.avatar} />
-                        ) : (
-                          <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
-                            {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
-                          </AvatarFallback>
+                      <div className="relative">
+                        <Avatar className="h-10 w-10">
+                          {friend.avatar ? (
+                            <AvatarImage src={friend.avatar} />
+                          ) : (
+                            <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
+                              {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        {friend.hasUnseenMessages && (
+                          <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background"></div>
                         )}
-                      </Avatar>
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-pixelated text-sm font-medium truncate">{friend.name}</p>
                         <p className="text-xs text-muted-foreground truncate">@{friend.username}</p>

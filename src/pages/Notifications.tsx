@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
+import { ClearAllNotifications } from '@/components/notifications/ClearAllNotifications';
 
 interface NotificationProps {
   id: string;
@@ -210,6 +210,10 @@ export function Notifications() {
     }
   };
 
+  const handleClearAll = () => {
+    setNotifications([]);
+  };
+
   useEffect(() => {
     fetchNotifications();
 
@@ -239,12 +243,22 @@ export function Notifications() {
     <DashboardLayout>
       <Card className="card-gradient">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
-            <Bell className="h-6 w-6" /> Notifications
-          </CardTitle>
-          <CardDescription>
-            Stay updated with activity related to your account.
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-2xl font-bold social-gradient bg-clip-text text-transparent flex items-center gap-2">
+                <Bell className="h-6 w-6" /> Notifications
+              </CardTitle>
+              <CardDescription>
+                Stay updated with activity related to your account.
+              </CardDescription>
+            </div>
+            {notifications.length > 0 && (
+              <ClearAllNotifications 
+                onClearAll={handleClearAll}
+                disabled={loading}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
