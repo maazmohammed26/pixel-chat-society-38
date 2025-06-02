@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -383,134 +384,138 @@ export function Messages() {
           <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
             {selectedFriend ? (
               <>
-                {/* Fixed Chat Header */}
-                <div className="p-4 border-b flex items-center gap-3 bg-background/95 backdrop-blur-sm shrink-0">
+                {/* Fixed Chat Header - Enhanced visibility */}
+                <div className="p-3 md:p-4 border-b flex items-center gap-3 bg-background/98 backdrop-blur-sm shrink-0 z-10 shadow-sm">
                   <Button 
-                    variant="ghost" 
-                    size="icon" 
+                    variant="outline" 
+                    size="sm" 
                     onClick={() => setSelectedFriend(null)}
-                    className="md:hidden h-8 w-8"
+                    className="md:hidden h-8 w-8 p-0 border-2 bg-background hover:bg-muted"
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-8 w-8 md:h-10 md:w-10">
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
+                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs md:text-sm">
                         {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     )}
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-pixelated text-base font-medium truncate">{selectedFriend.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
+                    <p className="font-pixelated text-sm md:text-base font-medium truncate text-foreground">{selectedFriend.name}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
-                {/* Messages Area - Scrollable */}
-                <ScrollArea className="flex-1 p-4">
-                  {messages.length > 0 ? (
-                    <div className="space-y-6">
-                      {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-                        <div key={date}>
-                          {/* Date Separator */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="h-px bg-border flex-1" />
-                            <span className="text-xs font-pixelated text-muted-foreground px-3 py-1 bg-muted rounded-full">
-                              {date}
-                            </span>
-                            <div className="h-px bg-border flex-1" />
-                          </div>
-                          
-                          {/* Messages for this date */}
-                          <div className="space-y-3">
-                            {dateMessages.map((message) => (
-                              <div 
-                                key={message.id}
-                                className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-                              >
-                                {message.sender_id !== currentUser?.id && (
-                                  <Avatar className="h-8 w-8">
-                                    {message.sender?.avatar ? (
-                                      <AvatarImage src={message.sender.avatar} />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                        {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                )}
-                                
-                                <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'ml-8' : 'mr-8'}`}>
-                                  <div className={`p-3 rounded-2xl font-pixelated text-sm leading-relaxed ${
-                                    message.sender_id === currentUser?.id 
-                                      ? 'bg-primary text-white rounded-br-md' 
-                                      : 'bg-muted text-foreground rounded-bl-md'
-                                  }`}>
-                                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                {/* Messages Area - Scrollable with padding for fixed elements */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <ScrollArea className="flex-1 p-3 md:p-4">
+                    {messages.length > 0 ? (
+                      <div className="space-y-6 pb-4">
+                        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                          <div key={date}>
+                            {/* Date Separator */}
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-px bg-border flex-1" />
+                              <span className="text-xs font-pixelated text-muted-foreground px-3 py-1 bg-muted rounded-full">
+                                {date}
+                              </span>
+                              <div className="h-px bg-border flex-1" />
+                            </div>
+                            
+                            {/* Messages for this date */}
+                            <div className="space-y-3">
+                              {dateMessages.map((message) => (
+                                <div 
+                                  key={message.id}
+                                  className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                                >
+                                  {message.sender_id !== currentUser?.id && (
+                                    <Avatar className="h-6 w-6 md:h-8 md:w-8">
+                                      {message.sender?.avatar ? (
+                                        <AvatarImage src={message.sender.avatar} />
+                                      ) : (
+                                        <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
+                                          {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                                        </AvatarFallback>
+                                      )}
+                                    </Avatar>
+                                  )}
+                                  
+                                  <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'ml-6 md:ml-8' : 'mr-6 md:mr-8'}`}>
+                                    <div className={`p-3 rounded-2xl font-pixelated text-xs md:text-sm leading-relaxed ${
+                                      message.sender_id === currentUser?.id 
+                                        ? 'bg-primary text-white rounded-br-md' 
+                                        : 'bg-muted text-foreground rounded-bl-md'
+                                    }`}>
+                                      <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                                    </div>
+                                    <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
+                                      message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
+                                    }`}>
+                                      {format(new Date(message.created_at), 'HH:mm')}
+                                    </p>
                                   </div>
-                                  <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
-                                    message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
-                                  }`}>
-                                    {format(new Date(message.created_at), 'HH:mm')}
-                                  </p>
+                                  
+                                  {message.sender_id === currentUser?.id && (
+                                    <Avatar className="h-6 w-6 md:h-8 md:w-8">
+                                      {currentUser?.avatar ? (
+                                        <AvatarImage src={currentUser.avatar} />
+                                      ) : (
+                                        <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
+                                          {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
+                                        </AvatarFallback>
+                                      )}
+                                    </Avatar>
+                                  )}
                                 </div>
-                                
-                                {message.sender_id === currentUser?.id && (
-                                  <Avatar className="h-8 w-8">
-                                    {currentUser?.avatar ? (
-                                      <AvatarImage src={currentUser.avatar} />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                        {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                )}
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                          <Send className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <p className="text-muted-foreground font-pixelated text-sm">Start the conversation!</p>
+                        ))}
+                        <div ref={messagesEndRef} />
                       </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                            <Send className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <p className="text-muted-foreground font-pixelated text-sm">Start the conversation!</p>
+                        </div>
+                      </div>
+                    )}
+                  </ScrollArea>
+                  
+                  {/* Fixed Message Input - Better positioning */}
+                  <div className="border-t bg-background/98 backdrop-blur-sm shrink-0 z-10">
+                    <div className="p-3 md:p-4">
+                      <div className="flex gap-2 md:gap-3 items-end">
+                        <div className="flex-1">
+                          <Textarea 
+                            placeholder="Type a message..." 
+                            className="min-h-[44px] md:min-h-[48px] max-h-[120px] font-pixelated text-xs md:text-sm resize-none border-2 rounded-2xl"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            disabled={sendingMessage}
+                          />
+                        </div>
+                        <Button 
+                          className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[44px] w-[44px] md:h-[48px] md:w-[48px] p-0 rounded-full flex-shrink-0"
+                          onClick={sendMessage}
+                          disabled={!newMessage.trim() || sendingMessage}
+                        >
+                          <Send className="h-4 w-4 md:h-5 md:w-5" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2 font-pixelated text-center">
+                        Press Enter to send • Shift+Enter for new line
+                      </p>
                     </div>
-                  )}
-                </ScrollArea>
-                
-                {/* Fixed Message Input */}
-                <div className="p-4 border-t bg-background/95 backdrop-blur-sm shrink-0">
-                  <div className="flex gap-3 items-end">
-                    <div className="flex-1">
-                      <Textarea 
-                        placeholder="Type a message..." 
-                        className="min-h-[48px] max-h-[120px] font-pixelated text-sm resize-none border-2 rounded-2xl"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        disabled={sendingMessage}
-                      />
-                    </div>
-                    <Button 
-                      className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[48px] w-[48px] p-0 rounded-full flex-shrink-0"
-                      onClick={sendMessage}
-                      disabled={!newMessage.trim() || sendingMessage}
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 font-pixelated text-center">
-                    Press Enter to send • Shift+Enter for new line
-                  </p>
                 </div>
               </>
             ) : (
