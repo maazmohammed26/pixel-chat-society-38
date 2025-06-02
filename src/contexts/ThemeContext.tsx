@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-export type Theme = 'light' | 'dark' | 'cyberpunk' | 'forest' | 'ocean' | 'sunset';
+export type Theme = 'light' | 'dark' | 'cyberpunk' | 'forest' | 'ocean' | 'sunset' | 'windows-classic' | 'modern-pro';
 
 interface ThemeContextType {
   theme: Theme;
@@ -41,6 +42,16 @@ export const themes = [
     value: 'sunset' as Theme,
     label: 'Sunset',
     colors: ['#ff6b35', '#f7931e', '#ffd23f']
+  },
+  {
+    value: 'windows-classic' as Theme,
+    label: 'Windows Classic',
+    colors: ['#c0c0c0', '#000080', '#008000']
+  },
+  {
+    value: 'modern-pro' as Theme,
+    label: 'Modern Pro',
+    colors: ['#1e1e1e', '#007acc', '#00d4aa']
   }
 ];
 
@@ -48,20 +59,69 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('app-theme') as Theme;
-    if (savedTheme && themes.find(t => t.value === savedTheme)) {
-      setTheme(savedTheme);
-    }
+    loadTheme();
   }, []);
 
+  const loadTheme = async () => {
+    try {
+      // First try to get from database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('theme')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.theme && themes.find(t => t.value === profile.theme)) {
+          setTheme(profile.theme as Theme);
+          return;
+        }
+      }
+      
+      // Fallback to localStorage
+      const savedTheme = localStorage.getItem('app-theme') as Theme;
+      if (savedTheme && themes.find(t => t.value === savedTheme)) {
+        setTheme(savedTheme);
+      }
+    } catch (error) {
+      console.error('Error loading theme:', error);
+      // Fallback to localStorage
+      const savedTheme = localStorage.getItem('app-theme') as Theme;
+      if (savedTheme && themes.find(t => t.value === savedTheme)) {
+        setTheme(savedTheme);
+      }
+    }
+  };
+
+  const saveTheme = async (newTheme: Theme) => {
+    try {
+      // Save to localStorage first (immediate)
+      localStorage.setItem('app-theme', newTheme);
+      
+      // Save to database (backup)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ theme: newTheme })
+          .eq('id', user.id);
+      }
+    } catch (error) {
+      console.error('Error saving theme:', error);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem('app-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
     
     // Remove all theme classes
-    document.documentElement.classList.remove('light', 'dark', 'cyberpunk', 'forest', 'ocean', 'sunset');
+    document.documentElement.classList.remove('light', 'dark', 'cyberpunk', 'forest', 'ocean', 'sunset', 'windows-classic', 'modern-pro');
     // Add current theme class
     document.documentElement.classList.add(theme);
+    
+    // Save theme when it changes
+    saveTheme(theme);
   }, [theme]);
 
   return (

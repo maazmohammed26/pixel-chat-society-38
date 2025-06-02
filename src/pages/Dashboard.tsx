@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CommunityFeed } from '@/components/dashboard/CommunityFeed';
 import { StoriesContainer } from '@/components/stories/StoriesContainer';
 import { PostCreator } from '@/components/dashboard/PostCreator';
+import { ScrollToTop } from '@/components/common/ScrollToTop';
 
 export function Dashboard() {
   return (
@@ -13,13 +14,18 @@ export function Dashboard() {
         <StoriesContainer />
         
         {/* Content */}
-        <div className="h-[calc(100vh-180px)] overflow-y-auto p-2">
+        <div className="h-[calc(100vh-180px)] overflow-y-auto p-2 scroll-container">
           {/* Post Creator - What's on your mind box */}
-          <PostCreator />
+          <div id="post-creator">
+            <PostCreator />
+          </div>
           
           {/* Community Feed */}
           <CommunityFeed />
         </div>
+        
+        {/* Scroll to Top Button */}
+        <ScrollToTop targetElementId="post-creator" />
       </div>
     </DashboardLayout>
   );
