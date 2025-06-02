@@ -7,14 +7,46 @@ export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, onChange, ...props }, ref) => {
+    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+    
+    // Auto-resize function that maintains stability
+    const autoResize = React.useCallback((textarea: HTMLTextAreaElement) => {
+      if (textarea) {
+        textarea.style.height = 'auto';
+        const scrollHeight = textarea.scrollHeight;
+        const maxHeight = 120; // max-h-[120px] in pixels
+        textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      }
+    }, []);
+
+    const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      autoResize(e.target);
+      onChange?.(e);
+    }, [onChange, autoResize]);
+
+    React.useEffect(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        autoResize(textarea);
+      }
+    }, [autoResize, props.value]);
+
     return (
       <textarea
         className={cn(
-          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden",
           className
         )}
-        ref={ref}
+        ref={(node) => {
+          textareaRef.current = node;
+          if (typeof ref === 'function') {
+            ref(node);
+          } else if (ref) {
+            ref.current = node;
+          }
+        }}
+        onChange={handleChange}
         {...props}
       />
     )

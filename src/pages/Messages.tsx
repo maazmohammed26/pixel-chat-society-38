@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -191,6 +190,8 @@ export function Messages() {
         
       if (error) throw error;
 
+      // Clear message immediately to prevent layout shifts
+      const messageContent = newMessage.trim();
       setNewMessage('');
       
       if (data) {
@@ -566,12 +567,15 @@ export function Messages() {
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={handleKeyDown}
                             disabled={sendingMessage}
+                            rows={1}
+                            style={{ height: 'auto' }}
                           />
                         </div>
                         <Button 
-                          className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[44px] w-[44px] md:h-[48px] md:w-[48px] p-0 rounded-full flex-shrink-0"
+                          className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[44px] w-[44px] md:h-[48px] md:w-[48px] p-0 rounded-full flex-shrink-0 self-end"
                           onClick={sendMessage}
                           disabled={!newMessage.trim() || sendingMessage}
+                          style={{ alignSelf: 'flex-end' }}
                         >
                           <Send className="h-4 w-4 md:h-5 md:w-5" />
                         </Button>
