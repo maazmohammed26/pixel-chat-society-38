@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Send, User, ArrowLeft } from 'lucide-react';
 import { format, isToday, isYesterday, format as formatDate } from 'date-fns';
@@ -39,6 +38,7 @@ export function Messages() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatar: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const fetchFriends = async () => {
@@ -233,12 +233,18 @@ export function Messages() {
     }
   };
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewMessage(e.target.value);
+    
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    const maxHeight = 100; // Maximum height
+    const newHeight = Math.min(scrollHeight, maxHeight);
+    textarea.style.height = `${newHeight}px`;
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -246,6 +252,22 @@ export function Messages() {
     }
   };
 
+  const handleSend = () => {
+    if (newMessage.trim()) {
+      sendMessage();
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '40px';
+      }
+    }
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  };
+  
   const formatMessageDate = (dateString: string) => {
     const date = new Date(dateString);
     if (isToday(date)) {
@@ -362,39 +384,40 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] flex">
+      <div className="h-screen flex bg-background">
         {/* Friends Sidebar */}
-        <div className={`w-full md:w-80 border-r bg-background flex flex-col ${selectedFriend ? 'hidden md:flex' : ''}`}>
+        <div className={`w-full md:w-80 border-r flex flex-col ${selectedFriend ? 'hidden md:flex' : ''}`}>
           {/* Header */}
-          <div className="p-4 border-b bg-muted/30">
+          <div className="h-16 px-4 border-b flex items-center bg-background">
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <h3 className="font-pixelated text-sm font-semibold">Messages ({friends.length})</h3>
+              <User className="h-5 w-5 text-primary" />
+              <h3 className="font-pixelated text-base font-semibold">Messages</h3>
+              <span className="text-sm text-muted-foreground">({friends.length})</span>
             </div>
           </div>
           
           {/* Friends List */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="space-y-2 p-3">
+              <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <Skeleton className="h-12 w-12 rounded-full" />
                     <div className="flex-1">
-                      <Skeleton className="h-4 w-24 mb-1" />
+                      <Skeleton className="h-4 w-24 mb-2" />
                       <Skeleton className="h-3 w-32" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : friends.length > 0 ? (
-              <div className="p-2 space-y-1">
+              <div className="space-y-1 p-2">
                 {friends.map(friend => (
                   <div
                     key={friend.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover-scale relative ${
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted/60 ${
                       selectedFriend?.id === friend.id 
-                        ? 'bg-primary text-white' 
+                        ? 'bg-primary text-white shadow-sm' 
                         : 'hover:bg-muted/50'
                     }`}
                     onClick={() => {
@@ -403,31 +426,37 @@ export function Messages() {
                     }}
                   >
                     <div className="relative">
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-12 w-12 border-2 border-background">
                         {friend.avatar ? (
                           <AvatarImage src={friend.avatar} />
                         ) : (
-                          <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
+                          <AvatarFallback className="bg-primary text-white font-pixelated">
                             {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
                           </AvatarFallback>
                         )}
                       </Avatar>
                       {friend.hasUnseenMessages && (
-                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background"></div>
+                        <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
+                          <div className="h-2 w-2 bg-white rounded-full"></div>
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-pixelated text-sm font-medium truncate">{friend.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">@{friend.username}</p>
+                      <p className="font-pixelated font-medium truncate text-sm">{friend.name}</p>
+                      <p className={`text-xs truncate ${selectedFriend?.id === friend.id ? 'text-white/80' : 'text-muted-foreground'}`}>
+                        @{friend.username}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center p-6">
-                <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground font-pixelated text-sm mb-3">No friends yet</p>
-                <Button variant="outline" className="font-pixelated text-sm" asChild>
+              <div className="text-center p-8">
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <User className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground font-pixelated text-sm mb-4">No friends yet</p>
+                <Button variant="outline" size="sm" className="font-pixelated" asChild>
                   <a href="/friends">Find Friends</a>
                 </Button>
               </div>
@@ -439,96 +468,91 @@ export function Messages() {
         <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
           {selectedFriend ? (
             <>
-              {/* Chat Header - Fixed */}
-              <div className="h-16 px-4 border-b flex items-center gap-3 bg-background shrink-0">
+              {/* Chat Header */}
+              <div className="h-16 px-4 border-b flex items-center bg-background shadow-sm">
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
                   onClick={() => setSelectedFriend(null)}
-                  className="md:hidden h-8 w-8 p-0"
+                  className="md:hidden mr-2 h-8 w-8 p-0"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10 border-2 border-muted">
                   {selectedFriend.avatar ? (
                     <AvatarImage src={selectedFriend.avatar} />
                   ) : (
-                    <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
+                    <AvatarFallback className="bg-primary text-white font-pixelated">
                       {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                     </AvatarFallback>
                   )}
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-pixelated text-base font-medium truncate">{selectedFriend.name}</p>
+                <div className="ml-3 flex-1 min-w-0">
+                  <p className="font-pixelated font-semibold truncate">{selectedFriend.name}</p>
                   <p className="text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
                 </div>
               </div>
               
-              {/* Messages Container - Flexible height */}
-              <div className="flex-1 flex flex-col min-h-0">
-                {/* Messages Area - Scrollable */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto bg-muted/20" style={{ height: 'calc(100vh - 140px)' }}>
+                <div className="p-4 space-y-6">
                   {messages.length > 0 ? (
                     <>
                       {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
                         <div key={date} className="space-y-4">
                           {/* Date Separator */}
-                          <div className="flex items-center gap-3">
-                            <div className="h-px bg-border flex-1" />
-                            <span className="text-xs font-pixelated text-muted-foreground px-3 py-1 bg-muted rounded-full">
-                              {date}
-                            </span>
-                            <div className="h-px bg-border flex-1" />
+                          <div className="flex items-center justify-center">
+                            <div className="bg-muted px-3 py-1 rounded-full">
+                              <span className="text-xs font-pixelated text-muted-foreground">{date}</span>
+                            </div>
                           </div>
                           
                           {/* Messages */}
-                          <div className="space-y-3">
-                            {dateMessages.map((message) => (
-                              <div 
-                                key={message.id}
-                                className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-                              >
-                                {message.sender_id !== currentUser?.id && (
-                                  <Avatar className="h-8 w-8 shrink-0">
-                                    {message.sender?.avatar ? (
-                                      <AvatarImage src={message.sender.avatar} />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                        {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                )}
-                                
-                                <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'ml-8' : 'mr-8'}`}>
-                                  <div className={`p-3 rounded-2xl font-pixelated text-sm leading-relaxed ${
-                                    message.sender_id === currentUser?.id 
-                                      ? 'bg-primary text-white rounded-br-md' 
-                                      : 'bg-muted text-foreground rounded-bl-md'
-                                  }`}>
-                                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                                  </div>
-                                  <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
-                                    message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
-                                  }`}>
-                                    {format(new Date(message.created_at), 'HH:mm')}
-                                  </p>
+                          {dateMessages.map((message) => (
+                            <div 
+                              key={message.id}
+                              className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                            >
+                              {message.sender_id !== currentUser?.id && (
+                                <Avatar className="h-8 w-8 shrink-0">
+                                  {message.sender?.avatar ? (
+                                    <AvatarImage src={message.sender.avatar} />
+                                  ) : (
+                                    <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
+                                      {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                              )}
+                              
+                              <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'order-first' : ''}`}>
+                                <div className={`px-4 py-2 rounded-2xl font-pixelated text-sm shadow-sm ${
+                                  message.sender_id === currentUser?.id 
+                                    ? 'bg-primary text-white rounded-br-md' 
+                                    : 'bg-background border rounded-bl-md'
+                                }`}>
+                                  <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
                                 </div>
-                                
-                                {message.sender_id === currentUser?.id && (
-                                  <Avatar className="h-8 w-8 shrink-0">
-                                    {currentUser?.avatar ? (
-                                      <AvatarImage src={currentUser.avatar} />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                        {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                )}
+                                <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
+                                  message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
+                                }`}>
+                                  {format(new Date(message.created_at), 'HH:mm')}
+                                </p>
                               </div>
-                            ))}
-                          </div>
+                              
+                              {message.sender_id === currentUser?.id && (
+                                <Avatar className="h-8 w-8 shrink-0">
+                                  {currentUser?.avatar ? (
+                                    <AvatarImage src={currentUser.avatar} />
+                                  ) : (
+                                    <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
+                                      {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ))}
                       <div ref={messagesEndRef} />
@@ -539,47 +563,48 @@ export function Messages() {
                         <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                           <Send className="h-8 w-8 text-muted-foreground" />
                         </div>
-                        <p className="text-muted-foreground font-pixelated text-sm">Start the conversation!</p>
+                        <p className="text-muted-foreground font-pixelated">Start the conversation!</p>
                       </div>
                     </div>
                   )}
                 </div>
-                
-                {/* Message Input - Fixed at bottom with no gap */}
-                <div className="border-t bg-background p-4 shrink-0">
-                  <div className="flex gap-3 items-end">
-                    <div className="flex-1">
-                      <Textarea 
-                        placeholder="Type a message..." 
-                        className="min-h-[40px] max-h-[120px] font-pixelated text-sm resize-none border-2 rounded-2xl"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        disabled={sendingMessage}
-                        rows={1}
-                      />
-                    </div>
-                    <Button 
-                      className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[40px] w-[40px] p-0 rounded-full shrink-0"
-                      onClick={sendMessage}
-                      disabled={!newMessage.trim() || sendingMessage}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+              </div>
+              
+              {/* Message Input - Fixed at bottom */}
+              <div className="bg-background border-t p-4" style={{ height: '80px' }}>
+                <div className="flex items-end gap-3 max-w-full">
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={textareaRef}
+                      placeholder="Type a message..."
+                      className="w-full min-h-[40px] max-h-[100px] px-4 py-2 border-2 border-muted rounded-full resize-none font-pixelated text-sm bg-background focus:border-primary focus:outline-none"
+                      value={newMessage}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      disabled={sendingMessage}
+                      style={{ height: '40px' }}
+                    />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 font-pixelated text-center">
-                    Press Enter to send • Shift+Enter for new line
-                  </p>
+                  <Button 
+                    className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-white shadow-md shrink-0"
+                    onClick={handleSend}
+                    disabled={!newMessage.trim() || sendingMessage}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1 text-center font-pixelated">
+                  Press Enter to send • Shift+Enter for new line
+                </p>
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-6">
                 <Send className="h-10 w-10 text-muted-foreground" />
               </div>
               <h1 className="text-xl font-pixelated font-bold mb-3">Select a chat</h1>
-              <p className="text-muted-foreground font-pixelated text-sm max-w-sm">
+              <p className="text-muted-foreground font-pixelated max-w-sm">
                 Choose a friend from your contacts to start messaging
               </p>
             </div>
