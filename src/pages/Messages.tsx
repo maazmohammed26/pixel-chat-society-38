@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Send, User, ArrowLeft } from 'lucide-react';
-import { format, isToday, isYesterday, format as formatDate } from 'date-fns';
+import { Send, ArrowLeft, Menu } from 'lucide-react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,7 +38,6 @@ export function Messages() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatar: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const fetchFriends = async () => {
@@ -186,7 +185,6 @@ export function Messages() {
         
       if (error) throw error;
 
-      const messageContent = newMessage.trim();
       setNewMessage('');
       
       if (data) {
@@ -233,64 +231,17 @@ export function Messages() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
-    
-    // Auto-resize textarea
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    const scrollHeight = textarea.scrollHeight;
-    const maxHeight = 100; // Maximum height
-    const newHeight = Math.min(scrollHeight, maxHeight);
-    textarea.style.height = `${newHeight}px`;
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  const handleSend = () => {
-    if (newMessage.trim()) {
-      sendMessage();
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = '40px';
-      }
-    }
-  };
-
   const scrollToBottom = () => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
   };
-  
-  const formatMessageDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isToday(date)) {
-      return 'Today';
-    } else if (isYesterday(date)) {
-      return 'Yesterday';
-    } else {
-      return formatDate(date, 'MMMM d, yyyy');
-    }
-  };
 
-  const groupMessagesByDate = (messages: Message[]) => {
-    const groups: { [key: string]: Message[] } = {};
-    
-    messages.forEach(message => {
-      const dateKey = formatMessageDate(message.created_at);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(message);
-    });
-    
-    return groups;
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   useEffect(() => {
@@ -384,20 +335,22 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="h-screen flex bg-background">
-        {/* Friends Sidebar */}
-        <div className={`w-full md:w-80 border-r flex flex-col ${selectedFriend ? 'hidden md:flex' : ''}`}>
+      <div className="flex h-screen bg-white">
+        {/* Friends List - Left Sidebar */}
+        <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-white ${selectedFriend ? 'hidden md:flex' : ''}`}>
           {/* Header */}
-          <div className="h-16 px-4 border-b flex items-center bg-background">
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              <h3 className="font-pixelated text-base font-semibold">Messages</h3>
-              <span className="text-sm text-muted-foreground">({friends.length})</span>
+          <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
+            <div className="flex items-center gap-3">
+              <Menu className="h-6 w-6 text-gray-600" />
+              <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
+                <div className="text-white text-xs font-bold">💬</div>
+              </div>
+              <h1 className="text-xl font-bold text-gray-800">SocialChat</h1>
             </div>
           </div>
           
           {/* Friends List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto bg-gray-50">
             {loading ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
@@ -411,52 +364,43 @@ export function Messages() {
                 ))}
               </div>
             ) : friends.length > 0 ? (
-              <div className="space-y-1 p-2">
+              <div className="p-2">
                 {friends.map(friend => (
                   <div
                     key={friend.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted/60 ${
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
                       selectedFriend?.id === friend.id 
-                        ? 'bg-primary text-white shadow-sm' 
-                        : 'hover:bg-muted/50'
+                        ? 'bg-green-100 border-l-4 border-green-600' 
+                        : 'hover:bg-gray-100'
                     }`}
                     onClick={() => {
                       setSelectedFriend(friend);
                       fetchMessages(friend.id);
                     }}
                   >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12 border-2 border-background">
-                        {friend.avatar ? (
-                          <AvatarImage src={friend.avatar} />
-                        ) : (
-                          <AvatarFallback className="bg-primary text-white font-pixelated">
-                            {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      {friend.hasUnseenMessages && (
-                        <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
-                          <div className="h-2 w-2 bg-white rounded-full"></div>
-                        </div>
+                    <Avatar className="h-12 w-12">
+                      {friend.avatar ? (
+                        <AvatarImage src={friend.avatar} />
+                      ) : (
+                        <AvatarFallback className="bg-green-600 text-white font-bold">
+                          {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
+                        </AvatarFallback>
                       )}
-                    </div>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-pixelated font-medium truncate text-sm">{friend.name}</p>
-                      <p className={`text-xs truncate ${selectedFriend?.id === friend.id ? 'text-white/80' : 'text-muted-foreground'}`}>
-                        @{friend.username}
-                      </p>
+                      <p className="font-semibold text-gray-900 truncate">{friend.name}</p>
+                      <p className="text-sm text-gray-500 truncate">@{friend.username}</p>
                     </div>
+                    {friend.hasUnseenMessages && (
+                      <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                    )}
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center p-8">
-                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                  <User className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <p className="text-muted-foreground font-pixelated text-sm mb-4">No friends yet</p>
-                <Button variant="outline" size="sm" className="font-pixelated" asChild>
+                <p className="text-gray-500 mb-4">No friends yet</p>
+                <Button variant="outline" size="sm" asChild>
                   <a href="/friends">Find Friends</a>
                 </Button>
               </div>
@@ -469,142 +413,101 @@ export function Messages() {
           {selectedFriend ? (
             <>
               {/* Chat Header */}
-              <div className="h-16 px-4 border-b flex items-center bg-background shadow-sm">
+              <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setSelectedFriend(null)}
-                  className="md:hidden mr-2 h-8 w-8 p-0"
+                  className="md:hidden mr-3"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <Avatar className="h-10 w-10 border-2 border-muted">
+                <Avatar className="h-10 w-10 mr-3">
                   {selectedFriend.avatar ? (
                     <AvatarImage src={selectedFriend.avatar} />
                   ) : (
-                    <AvatarFallback className="bg-primary text-white font-pixelated">
+                    <AvatarFallback className="bg-green-600 text-white font-bold">
                       {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                     </AvatarFallback>
                   )}
                 </Avatar>
-                <div className="ml-3 flex-1 min-w-0">
-                  <p className="font-pixelated font-semibold truncate">{selectedFriend.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
+                <div>
+                  <p className="font-semibold text-gray-900">{selectedFriend.name}</p>
+                  <p className="text-sm text-gray-500">@{selectedFriend.username}</p>
                 </div>
               </div>
               
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto bg-muted/20" style={{ height: 'calc(100vh - 140px)' }}>
-                <div className="p-4 space-y-6">
-                  {messages.length > 0 ? (
-                    <>
-                      {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-                        <div key={date} className="space-y-4">
-                          {/* Date Separator */}
-                          <div className="flex items-center justify-center">
-                            <div className="bg-muted px-3 py-1 rounded-full">
-                              <span className="text-xs font-pixelated text-muted-foreground">{date}</span>
-                            </div>
+              <div className="flex-1 overflow-y-auto bg-gray-50 p-4" style={{ paddingBottom: '80px' }}>
+                {messages.length > 0 ? (
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <div 
+                        key={message.id}
+                        className={`flex items-start gap-3 ${message.sender_id === currentUser?.id ? 'flex-row-reverse' : ''}`}
+                      >
+                        <Avatar className="h-8 w-8 shrink-0">
+                          {message.sender?.avatar ? (
+                            <AvatarImage src={message.sender.avatar} />
+                          ) : (
+                            <AvatarFallback className="bg-green-600 text-white text-xs font-bold">
+                              {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        
+                        <div className={`max-w-[70%] ${message.sender_id === currentUser?.id ? 'text-right' : 'text-left'}`}>
+                          <div className={`inline-block px-4 py-2 rounded-2xl ${
+                            message.sender_id === currentUser?.id 
+                              ? 'bg-gray-800 text-white rounded-br-md' 
+                              : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
+                          }`}>
+                            <p className="text-sm leading-relaxed">{message.content}</p>
                           </div>
-                          
-                          {/* Messages */}
-                          {dateMessages.map((message) => (
-                            <div 
-                              key={message.id}
-                              className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-                            >
-                              {message.sender_id !== currentUser?.id && (
-                                <Avatar className="h-8 w-8 shrink-0">
-                                  {message.sender?.avatar ? (
-                                    <AvatarImage src={message.sender.avatar} />
-                                  ) : (
-                                    <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                      {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
-                              )}
-                              
-                              <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'order-first' : ''}`}>
-                                <div className={`px-4 py-2 rounded-2xl font-pixelated text-sm shadow-sm ${
-                                  message.sender_id === currentUser?.id 
-                                    ? 'bg-primary text-white rounded-br-md' 
-                                    : 'bg-background border rounded-bl-md'
-                                }`}>
-                                  <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
-                                </div>
-                                <p className={`text-xs text-muted-foreground mt-1 font-pixelated ${
-                                  message.sender_id === currentUser?.id ? 'text-right' : 'text-left'
-                                }`}>
-                                  {format(new Date(message.created_at), 'HH:mm')}
-                                </p>
-                              </div>
-                              
-                              {message.sender_id === currentUser?.id && (
-                                <Avatar className="h-8 w-8 shrink-0">
-                                  {currentUser?.avatar ? (
-                                    <AvatarImage src={currentUser.avatar} />
-                                  ) : (
-                                    <AvatarFallback className="bg-primary text-white font-pixelated text-xs">
-                                      {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ME'}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
-                              )}
-                            </div>
-                          ))}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {format(new Date(message.created_at), 'HH:mm')}
+                          </p>
                         </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </>
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                          <Send className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <p className="text-muted-foreground font-pixelated">Start the conversation!</p>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">Start the conversation!</p>
+                  </div>
+                )}
               </div>
               
               {/* Message Input - Fixed at bottom */}
-              <div className="bg-background border-t p-4" style={{ height: '80px' }}>
-                <div className="flex items-end gap-3 max-w-full">
-                  <div className="flex-1 relative">
-                    <textarea
-                      ref={textareaRef}
-                      placeholder="Type a message..."
-                      className="w-full min-h-[40px] max-h-[100px] px-4 py-2 border-2 border-muted rounded-full resize-none font-pixelated text-sm bg-background focus:border-primary focus:outline-none"
-                      value={newMessage}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      disabled={sendingMessage}
-                      style={{ height: '40px' }}
-                    />
-                  </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+                <div className="flex items-center gap-3 max-w-full">
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-green-500 bg-gray-50"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    disabled={sendingMessage}
+                  />
                   <Button 
-                    className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-white shadow-md shrink-0"
-                    onClick={handleSend}
+                    className="h-12 w-12 rounded-full bg-green-600 hover:bg-green-700 text-white shrink-0"
+                    onClick={sendMessage}
                     disabled={!newMessage.trim() || sendingMessage}
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 text-center font-pixelated">
-                  Press Enter to send • Shift+Enter for new line
-                </p>
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-6">
-                <Send className="h-10 w-10 text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50">
+              <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <Send className="h-10 w-10 text-green-600" />
               </div>
-              <h1 className="text-xl font-pixelated font-bold mb-3">Select a chat</h1>
-              <p className="text-muted-foreground font-pixelated max-w-sm">
+              <h1 className="text-2xl font-bold text-gray-900 mb-3">Select a chat</h1>
+              <p className="text-gray-500 max-w-sm">
                 Choose a friend from your contacts to start messaging
               </p>
             </div>
