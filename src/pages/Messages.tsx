@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Send, ArrowLeft, Menu } from 'lucide-react';
+import { Send, ArrowLeft, Phone, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Friend {
   id: string;
@@ -333,24 +335,222 @@ export function Messages() {
     scrollToBottom();
   }, [messages]);
 
+  const fetchFriends = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('name, avatar')
+        .eq('id', user.id)
+        .single();
+
+      if (userProfile) {
+        setCurrentUser({
+          id: user.id,
+          name: userProfile.name || 'User',
+          avatar: userProfile.avatar || ''
+        });
+      }
+
+      const { data: friendsData, error } = await supabase
+        .from('friends')
+        .select('id, sender_id, receiver_id, status')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+        
+      if (error) throw error;
+      
+      const formattedFriends: Friend[] = [];
+      
+      if (friendsData) {
+        for (const friend of friendsData) {
+          const isSender = friend.sender_id === user.id;
+          const friendId = isSender ? friend.receiver_id : friend.sender_id;
+          
+          const { data: friendProfile } = await supabase
+            .from('profiles')
+            .select('id, name, username, avatar')
+            .eq('id', friendId)
+            .single();
+          
+          if (friendProfile && friendProfile.id) {
+            const { data: latestMessage } = await supabase
+              .from('messages')
+              .select('created_at, sender_id, read')
+              .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            const { data: unseenMessages } = await supabase
+              .from('messages')
+              .select('id')
+              .eq('sender_id', friendId)
+              .eq('receiver_id', user.id)
+              .eq('read', false);
+
+            formattedFriends.push({
+              id: friendProfile.id,
+              name: friendProfile.name || 'User',
+              username: friendProfile.username || 'guest',
+              avatar: friendProfile.avatar || '',
+              lastMessageTime: latestMessage?.created_at,
+              hasUnseenMessages: (unseenMessages?.length || 0) > 0
+            });
+          }
+        }
+      }
+
+      formattedFriends.sort((a, b) => {
+        if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+        if (!a.lastMessageTime) return 1;
+        if (!b.lastMessageTime) return -1;
+        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      });
+
+      setFriends(formattedFriends);
+    } catch (error) {
+      console.error('Error fetching friends for messages:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async (friendId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      const { data: messagesData, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          sender_id,
+          receiver_id,
+          content,
+          created_at,
+          profiles!messages_sender_id_fkey(name, avatar)
+        `)
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
+        .order('created_at');
+        
+      if (error) throw error;
+
+      const formattedMessages: Message[] = messagesData.map((message: any) => ({
+        id: message.id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        content: message.content,
+        created_at: message.created_at,
+        sender: {
+          name: message.profiles?.name || 'Unknown',
+          avatar: message.profiles?.avatar || ''
+        }
+      }));
+
+      setMessages(formattedMessages);
+      scrollToBottom();
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedFriend || !currentUser || sendingMessage) return;
+    
+    try {
+      setSendingMessage(true);
+      
+      const messageData = {
+        sender_id: currentUser.id,
+        receiver_id: selectedFriend.id,
+        content: newMessage.trim(),
+        read: false
+      };
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert(messageData)
+        .select()
+        .single();
+        
+      if (error) throw error;
+
+      setNewMessage('');
+      
+      if (data) {
+        const newMessageWithSender = {
+          ...data,
+          sender: {
+            name: currentUser.name,
+            avatar: currentUser.avatar
+          }
+        };
+        
+        setMessages(prevMessages => {
+          const exists = prevMessages.some(msg => msg.id === data.id);
+          if (exists) return prevMessages;
+          return [...prevMessages, newMessageWithSender];
+        });
+
+        setFriends(prevFriends => {
+          const updatedFriends = prevFriends.map(friend => 
+            friend.id === selectedFriend.id 
+              ? { ...friend, lastMessageTime: data.created_at }
+              : friend
+          );
+          
+          return updatedFriends.sort((a, b) => {
+            if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+            if (!a.lastMessageTime) return 1;
+            if (!b.lastMessageTime) return -1;
+            return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+          });
+        });
+      }
+      
+      scrollToBottom();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to send message'
+      });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
     <DashboardLayout>
-      <div className="flex h-screen bg-white">
+      <div className="flex h-[calc(100vh-120px)] bg-background">
         {/* Friends List - Left Sidebar */}
-        <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-white ${selectedFriend ? 'hidden md:flex' : ''}`}>
-          {/* Header */}
-          <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
-            <div className="flex items-center gap-3">
-              <Menu className="h-6 w-6 text-gray-600" />
-              <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
-                <div className="text-white text-xs font-bold">💬</div>
-              </div>
-              <h1 className="text-xl font-bold text-gray-800">SocialChat</h1>
-            </div>
+        <div className={`w-full md:w-80 border-r border-border flex flex-col ${selectedFriend ? 'hidden md:flex' : ''}`}>
+          {/* Simple Header */}
+          <div className="h-16 px-4 border-b border-border flex items-center bg-card">
+            <h1 className="text-xl font-semibold text-foreground">Messages</h1>
           </div>
           
-          {/* Friends List */}
-          <div className="flex-1 overflow-y-auto bg-gray-50">
+          {/* Friends List with Scroll */}
+          <ScrollArea className="flex-1">
             {loading ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
@@ -368,10 +568,10 @@ export function Messages() {
                 {friends.map(friend => (
                   <div
                     key={friend.id}
-                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors rounded-lg m-1 ${
                       selectedFriend?.id === friend.id 
-                        ? 'bg-green-100 border-l-4 border-green-600' 
-                        : 'hover:bg-gray-100'
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'hover:bg-muted'
                     }`}
                     onClick={() => {
                       setSelectedFriend(friend);
@@ -382,65 +582,76 @@ export function Messages() {
                       {friend.avatar ? (
                         <AvatarImage src={friend.avatar} />
                       ) : (
-                        <AvatarFallback className="bg-green-600 text-white font-bold">
+                        <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                           {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
                         </AvatarFallback>
                       )}
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{friend.name}</p>
-                      <p className="text-sm text-gray-500 truncate">@{friend.username}</p>
+                      <p className="font-semibold truncate">{friend.name}</p>
+                      <p className="text-sm opacity-70 truncate">@{friend.username}</p>
                     </div>
                     {friend.hasUnseenMessages && (
-                      <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                      <div className="h-3 w-3 bg-primary rounded-full"></div>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center p-8">
-                <p className="text-gray-500 mb-4">No friends yet</p>
+                <p className="text-muted-foreground mb-4">No friends yet</p>
                 <Button variant="outline" size="sm" asChild>
                   <a href="/friends">Find Friends</a>
                 </Button>
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
         
         {/* Chat Area */}
         <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
           {selectedFriend ? (
             <>
-              {/* Chat Header */}
-              <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setSelectedFriend(null)}
-                  className="md:hidden mr-3"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <Avatar className="h-10 w-10 mr-3">
-                  {selectedFriend.avatar ? (
-                    <AvatarImage src={selectedFriend.avatar} />
-                  ) : (
-                    <AvatarFallback className="bg-green-600 text-white font-bold">
-                      {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <div>
-                  <p className="font-semibold text-gray-900">{selectedFriend.name}</p>
-                  <p className="text-sm text-gray-500">@{selectedFriend.username}</p>
+              {/* Chat Header with Back Button and Actions */}
+              <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card">
+                <div className="flex items-center gap-3">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedFriend(null)}
+                    className="md:hidden"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <Avatar className="h-10 w-10">
+                    {selectedFriend.avatar ? (
+                      <AvatarImage src={selectedFriend.avatar} />
+                    ) : (
+                      <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                        {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold text-foreground">{selectedFriend.name}</p>
+                    <p className="text-sm text-muted-foreground">@{selectedFriend.username}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm">
+                    <Phone className="h-5 w-5" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Video className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
               
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto bg-gray-50 p-4" style={{ paddingBottom: '80px' }}>
+              {/* Messages Area with Proper Scrolling */}
+              <ScrollArea className="flex-1 p-4">
                 {messages.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4 pb-4">
                     {messages.map((message) => (
                       <div 
                         key={message.id}
@@ -450,7 +661,7 @@ export function Messages() {
                           {message.sender?.avatar ? (
                             <AvatarImage src={message.sender.avatar} />
                           ) : (
-                            <AvatarFallback className="bg-green-600 text-white text-xs font-bold">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                               {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
                             </AvatarFallback>
                           )}
@@ -459,12 +670,12 @@ export function Messages() {
                         <div className={`max-w-[70%] ${message.sender_id === currentUser?.id ? 'text-right' : 'text-left'}`}>
                           <div className={`inline-block px-4 py-2 rounded-2xl ${
                             message.sender_id === currentUser?.id 
-                              ? 'bg-gray-800 text-white rounded-br-md' 
-                              : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
+                              ? 'bg-primary text-primary-foreground rounded-br-md' 
+                              : 'bg-muted text-foreground rounded-bl-md'
                           }`}>
                             <p className="text-sm leading-relaxed">{message.content}</p>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {format(new Date(message.created_at), 'HH:mm')}
                           </p>
                         </div>
@@ -474,25 +685,25 @@ export function Messages() {
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Start the conversation!</p>
+                    <p className="text-muted-foreground">Start the conversation!</p>
                   </div>
                 )}
-              </div>
+              </ScrollArea>
               
-              {/* Message Input - Fixed at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
-                <div className="flex items-center gap-3 max-w-full">
+              {/* Fixed Message Input */}
+              <div className="border-t border-border p-4 bg-card">
+                <div className="flex items-center gap-3">
                   <input
                     type="text"
                     placeholder="Type a message..."
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-green-500 bg-gray-50"
+                    className="flex-1 px-4 py-3 border border-input rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-background"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     disabled={sendingMessage}
                   />
                   <Button 
-                    className="h-12 w-12 rounded-full bg-green-600 hover:bg-green-700 text-white shrink-0"
+                    className="h-12 w-12 rounded-full shrink-0"
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || sendingMessage}
                   >
@@ -502,12 +713,12 @@ export function Messages() {
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50">
-              <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                <Send className="h-10 w-10 text-green-600" />
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center mb-6">
+                <Send className="h-10 w-10 text-muted-foreground" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-3">Select a chat</h1>
-              <p className="text-gray-500 max-w-sm">
+              <h1 className="text-2xl font-semibold text-foreground mb-3">Select a chat</h1>
+              <p className="text-muted-foreground max-w-sm">
                 Choose a friend from your contacts to start messaging
               </p>
             </div>

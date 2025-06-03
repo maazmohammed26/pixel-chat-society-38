@@ -6,34 +6,34 @@ import { Palette, Check } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export function ThemeSwitcher() {
-  const { theme, setTheme, themes } = useTheme();
+  const { theme, themes, requestThemeChange } = useTheme();
 
   return (
     <Card className="card-gradient">
       <CardHeader className="pb-3">
-        <CardTitle className="font-pixelated text-sm text-foreground flex items-center gap-2">
-          <Palette className="h-3 w-3 text-social-green" />
+        <CardTitle className="text-sm text-foreground flex items-center gap-2">
+          <Palette className="h-3 w-3 text-primary" />
           Theme Settings
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-0">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-3">
           {themes.map((themeOption) => (
             <Button
               key={themeOption.value}
-              onClick={() => setTheme(themeOption.value)}
+              onClick={() => requestThemeChange(themeOption.value)}
               variant={theme === themeOption.value ? "default" : "outline"}
               className={`
-                relative h-auto p-3 flex flex-col items-center gap-2
+                relative h-auto p-4 flex items-center gap-3 justify-start
                 ${theme === themeOption.value 
-                  ? 'bg-social-green text-white border-social-green' 
-                  : 'hover:bg-muted/50 border-muted'
+                  ? 'bg-primary text-primary-foreground border-primary' 
+                  : 'hover:bg-muted/50 border-border'
                 }
-                transition-all duration-200 font-pixelated text-xs
+                transition-all duration-200 text-sm
               `}
             >
               {theme === themeOption.value && (
-                <Check className="absolute top-1 right-1 h-2 w-2" />
+                <Check className="absolute top-2 right-2 h-3 w-3" />
               )}
               
               {/* Theme color preview */}
@@ -41,15 +41,24 @@ export function ThemeSwitcher() {
                 {themeOption.colors.map((color, index) => (
                   <div
                     key={index}
-                    className="w-3 h-3 rounded-full border border-white/20"
+                    className="w-4 h-4 rounded-full border border-white/20"
                     style={{ backgroundColor: color }}
                   />
                 ))}
               </div>
               
-              <span className="text-xs">{themeOption.label}</span>
+              <div className="text-left">
+                <div className="font-semibold">{themeOption.label}</div>
+                <div className="text-xs opacity-70">{themeOption.font} font</div>
+              </div>
             </Button>
           ))}
+        </div>
+        
+        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+          <p className="text-xs text-muted-foreground">
+            Click on any theme to preview it. You'll be asked to confirm before applying the changes.
+          </p>
         </div>
       </CardContent>
     </Card>
