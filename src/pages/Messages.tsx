@@ -243,7 +243,7 @@ export function Messages() {
   const scrollToBottom = () => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    }, 50);
   };
   
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -447,39 +447,40 @@ export function Messages() {
           </div>
           
           {/* Chat area */}
-          <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
+          <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''} relative`}>
             {selectedFriend ? (
               <>
-                {/* Fixed Chat Header - Enhanced visibility */}
-                <div className="p-3 md:p-4 border-b flex items-center gap-3 bg-background/98 backdrop-blur-sm shrink-0 z-10 shadow-sm">
+                {/* Fixed Chat Header */}
+                <div className="p-4 border-b flex items-center gap-3 bg-background/95 backdrop-blur-sm shrink-0 z-20 shadow-sm">
                   <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={() => setSelectedFriend(null)}
-                    className="md:hidden h-8 w-8 p-0 border-2 bg-background hover:bg-muted"
+                    className="md:hidden h-8 w-8 p-0 border-2"
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <Avatar className="h-8 w-8 md:h-10 md:w-10">
+                  <Avatar className="h-10 w-10">
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-primary text-white font-pixelated text-xs md:text-sm">
+                      <AvatarFallback className="bg-primary text-white font-pixelated text-sm">
                         {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     )}
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-pixelated text-sm md:text-base font-medium truncate text-foreground">{selectedFriend.name}</p>
-                    <p className="text-xs md:text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
+                    <p className="font-pixelated text-base font-medium truncate">{selectedFriend.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
-                {/* Messages Area - Scrollable with padding for fixed elements */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <ScrollArea className="flex-1 p-3 md:p-4">
+                {/* Messages Area - Full height with no gaps */}
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                  {/* Scrollable Messages Container */}
+                  <div className="flex-1 overflow-y-auto p-4 pb-0">
                     {messages.length > 0 ? (
-                      <div className="space-y-6 pb-4">
+                      <div className="space-y-6">
                         {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
                           <div key={date}>
                             {/* Date Separator */}
@@ -499,7 +500,7 @@ export function Messages() {
                                   className={`flex gap-2 ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
                                 >
                                   {message.sender_id !== currentUser?.id && (
-                                    <Avatar className="h-6 w-6 md:h-8 md:w-8">
+                                    <Avatar className="h-8 w-8">
                                       {message.sender?.avatar ? (
                                         <AvatarImage src={message.sender.avatar} />
                                       ) : (
@@ -510,8 +511,8 @@ export function Messages() {
                                     </Avatar>
                                   )}
                                   
-                                  <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'ml-6 md:ml-8' : 'mr-6 md:mr-8'}`}>
-                                    <div className={`p-3 rounded-2xl font-pixelated text-xs md:text-sm leading-relaxed ${
+                                  <div className={`max-w-[75%] ${message.sender_id === currentUser?.id ? 'ml-8' : 'mr-8'}`}>
+                                    <div className={`p-3 rounded-2xl font-pixelated text-sm leading-relaxed ${
                                       message.sender_id === currentUser?.id 
                                         ? 'bg-primary text-white rounded-br-md' 
                                         : 'bg-muted text-foreground rounded-bl-md'
@@ -526,7 +527,7 @@ export function Messages() {
                                   </div>
                                   
                                   {message.sender_id === currentUser?.id && (
-                                    <Avatar className="h-6 w-6 md:h-8 md:w-8">
+                                    <Avatar className="h-8 w-8">
                                       {currentUser?.avatar ? (
                                         <AvatarImage src={currentUser.avatar} />
                                       ) : (
@@ -541,7 +542,7 @@ export function Messages() {
                             </div>
                           </div>
                         ))}
-                        <div ref={messagesEndRef} />
+                        <div ref={messagesEndRef} className="h-4" />
                       </div>
                     ) : (
                       <div className="h-full flex items-center justify-center">
@@ -553,31 +554,29 @@ export function Messages() {
                         </div>
                       </div>
                     )}
-                  </ScrollArea>
+                  </div>
                   
-                  {/* Fixed Message Input - Better positioning */}
-                  <div className="border-t bg-background/98 backdrop-blur-sm shrink-0 z-10">
-                    <div className="p-3 md:p-4">
-                      <div className="flex gap-2 md:gap-3 items-end">
+                  {/* Fixed Message Input - No gaps, perfect alignment */}
+                  <div className="border-t bg-background shrink-0 z-10">
+                    <div className="p-4">
+                      <div className="flex gap-3 items-end">
                         <div className="flex-1">
                           <Textarea 
                             placeholder="Type a message..." 
-                            className="min-h-[44px] md:min-h-[48px] max-h-[120px] font-pixelated text-xs md:text-sm resize-none border-2 rounded-2xl"
+                            className="min-h-[48px] max-h-[120px] font-pixelated text-sm resize-none border-2 rounded-2xl"
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={handleKeyDown}
                             disabled={sendingMessage}
                             rows={1}
-                            style={{ height: 'auto' }}
                           />
                         </div>
                         <Button 
-                          className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[44px] w-[44px] md:h-[48px] md:w-[48px] p-0 rounded-full flex-shrink-0 self-end"
+                          className="bg-primary hover:bg-primary/90 text-white font-pixelated h-[48px] w-[48px] p-0 rounded-full flex-shrink-0"
                           onClick={sendMessage}
                           disabled={!newMessage.trim() || sendingMessage}
-                          style={{ alignSelf: 'flex-end' }}
                         >
-                          <Send className="h-4 w-4 md:h-5 md:w-5" />
+                          <Send className="h-5 w-5" />
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2 font-pixelated text-center">
