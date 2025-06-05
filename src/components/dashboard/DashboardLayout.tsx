@@ -24,6 +24,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const currentRoute = getRouteFromPath(currentPath);
 
+  // Hide navigation tabs on Messages page
+  const showNavigationTabs = currentPath !== '/messages';
+
   return (
     <div className="min-h-screen bg-background flex flex-col w-full">
       <MobileHeader />
@@ -33,45 +36,47 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="border-b sticky top-0 bg-background z-10 px-4 py-3">
               <div className="flex items-center justify-between max-w-6xl mx-auto">
                 <h1 className="text-xl font-bold text-green-600">SocialChat</h1>
-                <Tabs value={currentRoute} className="flex-1 max-w-md mx-auto">
-                  <TabsList className="grid w-full grid-cols-5 bg-gray-100">
-                    <TabsTrigger 
-                      value="dashboard" 
-                      onClick={() => navigate('/dashboard')}
-                      className={`flex items-center justify-center p-3 ${currentRoute === 'dashboard' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      <Home className="h-5 w-5" />
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="friends" 
-                      onClick={() => navigate('/friends')}
-                      className={`flex items-center justify-center p-3 ${currentRoute === 'friends' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      <Users className="h-5 w-5" />
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="messages" 
-                      onClick={() => navigate('/messages')}
-                      className={`flex items-center justify-center p-3 ${currentRoute === 'messages' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      <MessageSquare className="h-5 w-5" />
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="notifications" 
-                      onClick={() => navigate('/notifications')}
-                      className={`flex items-center justify-center p-3 ${currentRoute === 'notifications' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      <Bell className="h-5 w-5" />
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="profile" 
-                      onClick={() => navigate('/profile')}
-                      className={`flex items-center justify-center p-3 ${currentRoute === 'profile' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      <User className="h-5 w-5" />
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {showNavigationTabs && (
+                  <Tabs value={currentRoute} className="flex-1 max-w-md mx-auto">
+                    <TabsList className="grid w-full grid-cols-5 bg-gray-100">
+                      <TabsTrigger 
+                        value="dashboard" 
+                        onClick={() => navigate('/dashboard')}
+                        className="flex items-center justify-center p-3 data-[state=active]:bg-green-600 data-[state=active]:text-white text-gray-600 hover:bg-gray-200"
+                      >
+                        <Home className="h-5 w-5" />
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="friends" 
+                        onClick={() => navigate('/friends')}
+                        className="flex items-center justify-center p-3 data-[state=active]:bg-green-600 data-[state=active]:text-white text-gray-600 hover:bg-gray-200"
+                      >
+                        <Users className="h-5 w-5" />
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="messages" 
+                        onClick={() => navigate('/messages')}
+                        className="flex items-center justify-center p-3 data-[state=active]:bg-green-600 data-[state=active]:text-white text-gray-600 hover:bg-gray-200"
+                      >
+                        <MessageSquare className="h-5 w-5" />
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="notifications" 
+                        onClick={() => navigate('/notifications')}
+                        className="flex items-center justify-center p-3 data-[state=active]:bg-green-600 data-[state=active]:text-white text-gray-600 hover:bg-gray-200"
+                      >
+                        <Bell className="h-5 w-5" />
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="profile" 
+                        onClick={() => navigate('/profile')}
+                        className="flex items-center justify-center p-3 data-[state=active]:bg-green-600 data-[state=active]:text-white text-gray-600 hover:bg-gray-200"
+                      >
+                        <User className="h-5 w-5" />
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
                 <div className="w-24"></div> {/* Spacer for balance */}
               </div>
             </div>
