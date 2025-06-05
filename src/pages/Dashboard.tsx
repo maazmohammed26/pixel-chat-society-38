@@ -9,19 +9,23 @@ import { ScrollToTop } from '@/components/common/ScrollToTop';
 export function Dashboard() {
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)]">
+      <div className="max-w-2xl mx-auto relative h-full flex flex-col">
         {/* Stories Container */}
-        <StoriesContainer />
+        <div className="shrink-0">
+          <StoriesContainer />
+        </div>
         
-        {/* Content */}
-        <div className="h-[calc(100vh-180px)] overflow-y-auto p-2 scroll-container">
-          {/* Post Creator - What's on your mind box */}
-          <div id="post-creator">
-            <PostCreator />
+        {/* Content with hidden scrollbar */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="p-2 space-y-4">
+            {/* Post Creator - What's on your mind box */}
+            <div id="post-creator">
+              <PostCreator />
+            </div>
+            
+            {/* Community Feed */}
+            <CommunityFeed />
           </div>
-          
-          {/* Community Feed */}
-          <CommunityFeed />
         </div>
         
         {/* Scroll to Top Button */}

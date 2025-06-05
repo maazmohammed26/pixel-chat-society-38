@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -337,7 +336,7 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100vh-120px)] bg-background overflow-hidden">
+      <div className="flex h-full bg-background overflow-hidden">
         {/* Friends List - Left Sidebar */}
         <div className={`w-full md:w-80 border-r border-border flex flex-col bg-background ${selectedFriend ? 'hidden md:flex' : ''}`}>
           {/* Friends List Header */}
@@ -345,8 +344,8 @@ export function Messages() {
             <h1 className="text-lg font-semibold text-foreground">Messages</h1>
           </div>
           
-          {/* Friends List with Scroll */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Friends List with Hidden Scrollbar */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {loading ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
@@ -444,11 +443,11 @@ export function Messages() {
                 </div>
               </div>
               
-              {/* Messages Area with Proper Scrolling */}
+              {/* Messages Area with Hidden Scrollbar */}
               <div 
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 bg-background"
-                style={{ maxHeight: 'calc(100vh - 200px)' }}
+                className="flex-1 overflow-y-auto p-4 bg-background scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {messages.length > 0 ? (
                   <div className="space-y-4 pb-4">
