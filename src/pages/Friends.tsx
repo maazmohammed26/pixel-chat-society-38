@@ -11,9 +11,9 @@ export function Friends() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto relative h-full flex flex-col animate-fade-in">
+      <div className="max-w-2xl mx-auto relative h-[calc(100vh-60px)] animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b bg-background shrink-0 backdrop-blur-sm">
+        <div className="flex items-center justify-between p-3 border-b bg-background sticky top-0 z-10 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
             <h1 className="font-pixelated text-base">Friends</h1>
@@ -52,11 +52,9 @@ export function Friends() {
           </DialogContent>
         </Dialog>
         
-        {/* Content with hidden scrollbar */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <div className="p-3">
-            <FriendList />
-          </div>
+        {/* Content */}
+        <div className="h-[calc(100vh-120px)] overflow-y-auto p-3">
+          <FriendList />
         </div>
       </div>
     </DashboardLayout>
