@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Friend {
   id: string;
@@ -40,6 +39,7 @@ export function Messages() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatar: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const fetchFriends = async () => {
@@ -236,7 +236,7 @@ export function Messages() {
   const scrollToBottom = () => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
+    }, 100);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -337,16 +337,16 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100vh-120px)] bg-background">
+      <div className="flex h-[calc(100vh-120px)] bg-background overflow-hidden">
         {/* Friends List - Left Sidebar */}
-        <div className={`w-full md:w-80 border-r border-border flex flex-col ${selectedFriend ? 'hidden md:flex' : ''}`}>
-          {/* Simple Header */}
-          <div className="h-16 px-4 border-b border-border flex items-center bg-card">
-            <h1 className="text-xl font-semibold text-foreground">Messages</h1>
+        <div className={`w-full md:w-80 border-r border-border flex flex-col bg-background ${selectedFriend ? 'hidden md:flex' : ''}`}>
+          {/* Friends List Header */}
+          <div className="h-14 px-4 border-b border-border flex items-center bg-card shrink-0">
+            <h1 className="text-lg font-semibold text-foreground">Messages</h1>
           </div>
           
           {/* Friends List with Scroll */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
@@ -401,16 +401,16 @@ export function Messages() {
                 </Button>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
         
         {/* Chat Area */}
-        <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
+        <div className={`flex-1 flex flex-col bg-background ${!selectedFriend ? 'hidden md:flex' : ''}`}>
           {selectedFriend ? (
             <>
-              {/* Chat Header with Back Button and Actions */}
-              <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card">
-                <div className="flex items-center gap-3">
+              {/* Chat Header with Back Button and User Info */}
+              <div className="h-14 px-4 border-b border-border flex items-center justify-between bg-card shrink-0">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -419,7 +419,7 @@ export function Messages() {
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-10 w-10 shrink-0">
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
@@ -428,13 +428,13 @@ export function Messages() {
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <div>
-                    <p className="font-semibold text-foreground">{selectedFriend.name}</p>
-                    <p className="text-sm text-muted-foreground">@{selectedFriend.username}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{selectedFriend.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <Button variant="ghost" size="sm">
                     <Phone className="h-5 w-5" />
                   </Button>
@@ -445,7 +445,11 @@ export function Messages() {
               </div>
               
               {/* Messages Area with Proper Scrolling */}
-              <ScrollArea className="flex-1 p-4">
+              <div 
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 bg-background"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
+              >
                 {messages.length > 0 ? (
                   <div className="space-y-4 pb-4">
                     {messages.map((message) => (
@@ -469,7 +473,7 @@ export function Messages() {
                               ? 'bg-primary text-primary-foreground rounded-br-md' 
                               : 'bg-muted text-foreground rounded-bl-md'
                           }`}>
-                            <p className="text-sm leading-relaxed">{message.content}</p>
+                            <p className="text-sm leading-relaxed break-words">{message.content}</p>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {format(new Date(message.created_at), 'HH:mm')}
@@ -484,10 +488,10 @@ export function Messages() {
                     <p className="text-muted-foreground">Start the conversation!</p>
                   </div>
                 )}
-              </ScrollArea>
+              </div>
               
               {/* Fixed Message Input */}
-              <div className="border-t border-border p-4 bg-card">
+              <div className="border-t border-border p-4 bg-card shrink-0">
                 <div className="flex items-center gap-3">
                   <input
                     type="text"
