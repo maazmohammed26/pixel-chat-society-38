@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Send, ArrowLeft, Menu } from 'lucide-react';
+import { Send, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -250,7 +249,7 @@ export function Messages() {
     
     const friendsInterval = setInterval(() => {
       fetchFriends();
-    }, 30000);
+    }, 15000);
 
     return () => clearInterval(friendsInterval);
   }, []);
@@ -321,7 +320,7 @@ export function Messages() {
 
       const messageInterval = setInterval(() => {
         fetchMessages(selectedFriend.id);
-      }, 10000);
+      }, 5000);
 
       return () => {
         supabase.removeChannel(channel);
@@ -336,84 +335,69 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="h-screen bg-white flex flex-col">
-        {/* Header */}
-        <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white">
-          <div className="flex items-center gap-3">
-            <Menu className="h-6 w-6 text-gray-600" />
-            <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
-              <div className="text-white text-xs font-bold">💬</div>
-            </div>
-            <h1 className="text-xl font-bold text-gray-800">SocialChat</h1>
-          </div>
-        </div>
-
+      <div className="h-[calc(100vh-120px)] bg-white flex flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           {/* Friends List - Left Sidebar */}
           <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-white ${selectedFriend ? 'hidden md:flex' : ''}`}>
-            {/* Friends List */}
-            <div className="flex-1 overflow-y-auto bg-gray-50" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              <style>{`
-                .friends-list::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
-              <div className="friends-list">
-                {loading ? (
-                  <div className="space-y-1 p-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                        <Skeleton className="h-12 w-12 rounded-full" />
-                        <div className="flex-1">
-                          <Skeleton className="h-4 w-24 mb-2" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
+            <div className="flex-none p-4 border-b bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-800">Messages</h2>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto messages-scrollbar">
+              {loading ? (
+                <div className="space-y-1 p-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-3 w-32" />
                       </div>
-                    ))}
-                  </div>
-                ) : friends.length > 0 ? (
-                  <div className="p-2">
-                    {friends.map(friend => (
-                      <div
-                        key={friend.id}
-                        className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
-                          selectedFriend?.id === friend.id 
-                            ? 'bg-green-100 border-l-4 border-green-600' 
-                            : 'hover:bg-gray-100'
-                        }`}
-                        onClick={() => {
-                          setSelectedFriend(friend);
-                          fetchMessages(friend.id);
-                        }}
-                      >
-                        <Avatar className="h-12 w-12">
-                          {friend.avatar ? (
-                            <AvatarImage src={friend.avatar} />
-                          ) : (
-                            <AvatarFallback className="bg-green-600 text-white font-bold">
-                              {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">{friend.name}</p>
-                          <p className="text-sm text-gray-500 truncate">@{friend.username}</p>
-                        </div>
-                        {friend.hasUnseenMessages && (
-                          <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : friends.length > 0 ? (
+                <div className="p-2">
+                  {friends.map(friend => (
+                    <div
+                      key={friend.id}
+                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                        selectedFriend?.id === friend.id 
+                          ? 'bg-green-100 border-l-4 border-green-600' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        setSelectedFriend(friend);
+                        fetchMessages(friend.id);
+                      }}
+                    >
+                      <Avatar className="h-12 w-12">
+                        {friend.avatar ? (
+                          <AvatarImage src={friend.avatar} />
+                        ) : (
+                          <AvatarFallback className="bg-green-600 text-white font-bold">
+                            {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
+                          </AvatarFallback>
                         )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{friend.name}</p>
+                        <p className="text-sm text-gray-500 truncate">@{friend.username}</p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center p-8">
-                    <p className="text-gray-500 mb-4">No friends yet</p>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href="/friends">Find Friends</a>
-                    </Button>
-                  </div>
-                )}
-              </div>
+                      {friend.hasUnseenMessages && (
+                        <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <p className="text-gray-500 mb-4">No friends yet</p>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href="/friends">Find Friends</a>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           
@@ -447,18 +431,7 @@ export function Messages() {
                 </div>
                 
                 {/* Messages Area */}
-                <div 
-                  className="flex-1 overflow-y-auto bg-gray-50 p-4 messages-container" 
-                  style={{ 
-                    scrollbarWidth: 'none', 
-                    msOverflowStyle: 'none'
-                  }}
-                >
-                  <style>{`
-                    .messages-container::-webkit-scrollbar {
-                      display: none;
-                    }
-                  `}</style>
+                <div className="flex-1 overflow-y-auto bg-gray-50 p-4 messages-scrollbar">
                   {messages.length > 0 ? (
                     <div className="space-y-4">
                       {messages.map((message) => (
@@ -535,6 +508,16 @@ export function Messages() {
           </div>
         </div>
       </div>
+      
+      <style jsx>{`
+        .messages-scrollbar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .messages-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </DashboardLayout>
   );
 }
