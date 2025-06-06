@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Send, ArrowLeft, Menu } from 'lucide-react';
@@ -334,23 +333,23 @@ export function Messages() {
   }, [messages]);
 
   return (
-    <DashboardLayout>
-      <div className="flex h-screen bg-white">
+    <div className="h-screen bg-white flex flex-col">
+      {/* Header */}
+      <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white">
+        <div className="flex items-center gap-3">
+          <Menu className="h-6 w-6 text-gray-600" />
+          <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
+            <div className="text-white text-xs font-bold">💬</div>
+          </div>
+          <h1 className="text-xl font-bold text-gray-800">SocialChat</h1>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
         {/* Friends List - Left Sidebar */}
         <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-white ${selectedFriend ? 'hidden md:flex' : ''}`}>
-          {/* Header */}
-          <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
-            <div className="flex items-center gap-3">
-              <Menu className="h-6 w-6 text-gray-600" />
-              <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
-                <div className="text-white text-xs font-bold">💬</div>
-              </div>
-              <h1 className="text-xl font-bold text-gray-800">SocialChat</h1>
-            </div>
-          </div>
-          
           {/* Friends List */}
-          <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="flex-1 overflow-y-auto bg-gray-50" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {loading ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map(i => (
@@ -413,7 +412,7 @@ export function Messages() {
           {selectedFriend ? (
             <>
               {/* Chat Header */}
-              <div className="h-16 px-4 border-b border-gray-200 flex items-center bg-white">
+              <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white">
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -438,7 +437,18 @@ export function Messages() {
               </div>
               
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto bg-gray-50 p-4" style={{ paddingBottom: '80px' }}>
+              <div 
+                className="flex-1 overflow-y-auto bg-gray-50 p-4" 
+                style={{ 
+                  scrollbarWidth: 'none', 
+                  msOverflowStyle: 'none'
+                }}
+              >
+                <style jsx>{`
+                  div::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
                 {messages.length > 0 ? (
                   <div className="space-y-4">
                     {messages.map((message) => (
@@ -479,8 +489,8 @@ export function Messages() {
                 )}
               </div>
               
-              {/* Message Input - Fixed at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+              {/* Message Input */}
+              <div className="flex-none bg-white border-t border-gray-200 p-4">
                 <div className="flex items-center gap-3 max-w-full">
                   <input
                     type="text"
@@ -514,7 +524,7 @@ export function Messages() {
           )}
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
 
