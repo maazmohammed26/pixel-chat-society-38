@@ -343,7 +343,7 @@ export function Messages() {
               <h2 className="text-lg font-bold text-gray-800">Messages</h2>
             </div>
             
-            <div className="flex-1 overflow-y-auto messages-scrollbar">
+            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {loading ? (
                 <div className="space-y-1 p-2">
                   {[1, 2, 3].map(i => (
@@ -406,14 +406,14 @@ export function Messages() {
             {selectedFriend ? (
               <>
                 {/* Chat Header */}
-                <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white">
+                <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setSelectedFriend(null)}
-                    className="md:hidden mr-3"
+                    className="md:hidden mr-3 p-2 hover:bg-gray-100"
                   >
-                    <ArrowLeft className="h-5 w-5" />
+                    <ArrowLeft className="h-5 w-5 text-gray-700" />
                   </Button>
                   <Avatar className="h-10 w-10 mr-3">
                     {selectedFriend.avatar ? (
@@ -425,13 +425,13 @@ export function Messages() {
                     )}
                   </Avatar>
                   <div>
-                    <p className="font-semibold text-gray-900">{selectedFriend.name}</p>
-                    <p className="text-sm text-gray-500">@{selectedFriend.username}</p>
+                    <p className="font-semibold text-gray-900 text-base">{selectedFriend.name}</p>
+                    <p className="text-sm text-gray-600">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto bg-gray-50 p-4 messages-scrollbar">
+                <div className="flex-1 overflow-y-auto bg-gray-50 p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {messages.length > 0 ? (
                     <div className="space-y-4">
                       {messages.map((message) => (
