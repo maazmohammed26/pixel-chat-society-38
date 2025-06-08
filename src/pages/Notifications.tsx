@@ -365,7 +365,7 @@ export function Notifications() {
                   <Bell className="h-6 w-6" /> 
                   Notifications
                   {unreadCount > 0 && (
-                    <Badge variant="destructive" className="font-pixelated text-xs">
+                    <Badge variant="destructive\" className="font-pixelated text-xs">
                       {unreadCount}
                     </Badge>
                   )}
