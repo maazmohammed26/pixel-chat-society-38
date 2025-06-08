@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageIcon, Send, X } from 'lucide-react';
+import { ImageIcon, Send, X, Globe, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,6 +14,7 @@ export function PostCreator() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [visibility, setVisibility] = useState<'public' | 'friends'>('public');
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -126,13 +127,14 @@ export function PostCreator() {
         console.log('Image uploaded successfully:', imageUrl);
       }
 
-      // Create post
+      // Create post with visibility
       const { error } = await supabase
         .from('posts')
         .insert({
           content: content.trim(),
           image_url: imageUrl,
-          user_id: currentUser.id
+          user_id: currentUser.id,
+          visibility: visibility
         });
 
       if (error) {
@@ -144,6 +146,7 @@ export function PostCreator() {
       setContent('');
       setImageFile(null);
       setImagePreview(null);
+      setVisibility('public');
       
       // Reset file input
       const fileInput = document.getElementById('image-upload') as HTMLInputElement;
@@ -153,11 +156,10 @@ export function PostCreator() {
       
       toast({
         title: 'Post created!',
-        description: 'Your post has been shared with the community',
+        description: `Your ${visibility} post has been shared`,
       });
 
-      // Instead of reloading the page, we'll emit a custom event
-      // The CommunityFeed component can listen for this event to refresh
+      // Emit custom event for feed refresh
       window.dispatchEvent(new CustomEvent('postCreated'));
 
     } catch (error: any) {
@@ -233,6 +235,27 @@ export function PostCreator() {
                     </span>
                   </Button>
                 </label>
+                
+                {/* Visibility Selector */}
+                <Select value={visibility} onValueChange={(value: 'public' | 'friends') => setVisibility(value)}>
+                  <SelectTrigger className="w-auto h-8 font-pixelated text-xs border-none bg-transparent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public" className="font-pixelated text-xs">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-3 w-3" />
+                        Public
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="friends" className="font-pixelated text-xs">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3 w-3" />
+                        Friends Only
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <Button
