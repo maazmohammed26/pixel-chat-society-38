@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, User, Globe, Users } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfileDialog } from '@/components/user/UserProfileDialog';
@@ -23,12 +23,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
+import { ProfilePictureViewer } from '@/components/ui/profile-picture-viewer';
 
 interface Post {
   id: string;
   content: string;
   image_url?: string;
-  visibility: 'public' | 'friends';
   created_at: string;
   user_id: string;
   profiles: {
@@ -65,7 +65,10 @@ export function CommunityFeed() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
-  const [userFriends, setUserFriends] = useState<Set<string>>(new Set());
+  const [showProfilePicture, setShowProfilePicture] = useState<{
+    show: boolean;
+    user: any;
+  }>({ show: false, user: null });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,31 +97,11 @@ export function CommunityFeed() {
         .single();
       
       setCurrentUser(profile);
-      
-      // Fetch user's friends
-      const { data: friendsData } = await supabase
-        .from('friends')
-        .select('sender_id, receiver_id')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .eq('status', 'accepted');
-      
-      const friendIds = new Set<string>();
-      friendsData?.forEach(friend => {
-        if (friend.sender_id === user.id) {
-          friendIds.add(friend.receiver_id);
-        } else {
-          friendIds.add(friend.sender_id);
-        }
-      });
-      setUserFriends(friendIds);
     }
   };
 
   const fetchPosts = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('posts')
         .select(`
@@ -151,24 +134,7 @@ export function CommunityFeed() {
         .limit(20);
 
       if (error) throw error;
-      
-      // Filter posts based on visibility and friendship
-      const filteredPosts = (data || []).filter(post => {
-        // Always show user's own posts
-        if (post.user_id === user.id) return true;
-        
-        // Show public posts
-        if (post.visibility === 'public') return true;
-        
-        // Show friends-only posts if user is friends with the poster
-        if (post.visibility === 'friends') {
-          return userFriends.has(post.user_id);
-        }
-        
-        return false;
-      });
-      
-      setPosts(filteredPosts);
+      setPosts(data || []);
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
@@ -281,6 +247,10 @@ export function CommunityFeed() {
     setShowUserProfile(true);
   };
 
+  const handleAvatarClick = (user: any) => {
+    setShowProfilePicture({ show: true, user });
+  };
+
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -342,7 +312,13 @@ export function CommunityFeed() {
                     className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => handleUserClick(post.profiles)}
                   >
-                    <Avatar className="w-10 h-10">
+                    <Avatar 
+                      className="w-10 h-10 cursor-pointer hover:scale-105 transition-transform"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAvatarClick(post.profiles);
+                      }}
+                    >
                       {post.profiles.avatar ? (
                         <AvatarImage src={post.profiles.avatar} alt={post.profiles.name} />
                       ) : (
@@ -352,16 +328,9 @@ export function CommunityFeed() {
                       )}
                     </Avatar>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-pixelated text-sm text-foreground hover:underline">
-                          {post.profiles.name}
-                        </h3>
-                        {post.visibility === 'friends' ? (
-                          <Users className="h-3 w-3 text-social-green" title="Friends only" />
-                        ) : (
-                          <Globe className="h-3 w-3 text-muted-foreground" title="Public" />
-                        )}
-                      </div>
+                      <h3 className="font-pixelated text-sm text-foreground hover:underline">
+                        {post.profiles.name}
+                      </h3>
                       <p className="font-pixelated text-xs text-muted-foreground">
                         @{post.profiles.username} • {timeAgo(post.created_at)}
                       </p>
@@ -441,7 +410,10 @@ export function CommunityFeed() {
                     {/* Existing Comments */}
                     {post.comments.map((comment) => (
                       <div key={comment.id} className="flex gap-2">
-                        <Avatar className="w-6 h-6">
+                        <Avatar 
+                          className="w-6 h-6 cursor-pointer hover:scale-105 transition-transform"
+                          onClick={() => handleAvatarClick(comment.profiles)}
+                        >
                           {comment.profiles.avatar ? (
                             <AvatarImage src={comment.profiles.avatar} alt={comment.profiles.name} />
                           ) : (
@@ -468,7 +440,10 @@ export function CommunityFeed() {
 
                     {/* Add Comment */}
                     <div className="flex gap-2">
-                      <Avatar className="w-6 h-6">
+                      <Avatar 
+                        className="w-6 h-6 cursor-pointer hover:scale-105 transition-transform"
+                        onClick={() => handleAvatarClick(currentUser)}
+                      >
                         {currentUser?.avatar ? (
                           <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                         ) : (
@@ -511,6 +486,13 @@ export function CommunityFeed() {
         open={showUserProfile}
         onOpenChange={setShowUserProfile}
         user={selectedUser}
+      />
+
+      {/* Profile Picture Viewer */}
+      <ProfilePictureViewer
+        open={showProfilePicture.show}
+        onOpenChange={(open) => setShowProfilePicture({ show: open, user: null })}
+        user={showProfilePicture.user}
       />
 
       {/* Delete Post Confirmation */}

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ThemeSwitcher } from '@/components/themes/ThemeSwitcher';
+import { ProfilePictureViewer } from '@/components/ui/profile-picture-viewer';
 
 interface UserProfileData {
   id: string;
@@ -36,6 +37,7 @@ export default function UserProfile() {
     username: ''
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [showProfilePicture, setShowProfilePicture] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -198,6 +200,12 @@ export default function UserProfile() {
     }
   };
 
+  const handleAvatarClick = () => {
+    if (user) {
+      setShowProfilePicture(true);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
@@ -226,7 +234,10 @@ export default function UserProfile() {
       <Card className="card-gradient">
         <CardHeader className="text-center pb-3">
           <div className="relative inline-block">
-            <Avatar className="w-16 h-16 mx-auto mb-2 border-2 border-social-green">
+            <Avatar 
+              className="w-16 h-16 mx-auto mb-2 border-2 border-social-green cursor-pointer hover:scale-105 transition-transform"
+              onClick={handleAvatarClick}
+            >
               {user.avatar ? (
                 <AvatarImage src={user.avatar} alt={user.name} />
               ) : (
@@ -347,6 +358,13 @@ export default function UserProfile() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Profile Picture Viewer */}
+      <ProfilePictureViewer
+        open={showProfilePicture}
+        onOpenChange={setShowProfilePicture}
+        user={user}
+      />
     </div>
   );
 }
