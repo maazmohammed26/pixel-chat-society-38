@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 
@@ -24,9 +23,15 @@ export const getCurrentUser = async () => {
 export const logoutUser = async () => {
   try {
     await supabase.auth.signOut();
-    // Clear any local storage or cached data
+    // Clear any local storage or cached data except theme
+    const theme = localStorage.getItem('socialchat-theme');
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Restore theme
+    if (theme) {
+      localStorage.setItem('socialchat-theme', theme);
+    }
     
     // Force redirect to login page
     window.location.href = '/login';

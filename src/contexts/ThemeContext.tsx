@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark' | 'windows-classic';
+export type Theme = 'light' | 'dark' | 'cyberpunk' | 'forest' | 'ocean' | 'sunset' | 'modern-pro';
 
 interface ThemeOption {
   value: Theme;
@@ -36,12 +35,44 @@ const themes: ThemeOption[] = [
     accent: '#14b8a6'
   },
   {
-    value: 'windows-classic',
-    label: 'Classic',
-    colors: ['#c0c0c0', '#808080', '#000080'],
-    primary: '#000080',
-    secondary: '#c0c0c0',
-    accent: '#800080'
+    value: 'cyberpunk',
+    label: 'Cyberpunk',
+    colors: ['#0a0a0a', '#ff00ff', '#00ffff'],
+    primary: '#ff00ff',
+    secondary: '#00ffff',
+    accent: '#ff0080'
+  },
+  {
+    value: 'forest',
+    label: 'Forest',
+    colors: ['#f0f8f0', '#2d5a2d', '#4a7c4a'],
+    primary: '#2d5a2d',
+    secondary: '#e8f5e8',
+    accent: '#4a7c4a'
+  },
+  {
+    value: 'ocean',
+    label: 'Ocean',
+    colors: ['#f0f8ff', '#1e40af', '#3b82f6'],
+    primary: '#1e40af',
+    secondary: '#dbeafe',
+    accent: '#3b82f6'
+  },
+  {
+    value: 'sunset',
+    label: 'Sunset',
+    colors: ['#fff8f0', '#ea580c', '#fb923c'],
+    primary: '#ea580c',
+    secondary: '#fed7aa',
+    accent: '#fb923c'
+  },
+  {
+    value: 'modern-pro',
+    label: 'Modern Pro',
+    colors: ['#1e293b', '#0ea5e9', '#22c55e'],
+    primary: '#0ea5e9',
+    secondary: '#334155',
+    accent: '#22c55e'
   }
 ];
 
@@ -77,7 +108,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'windows-classic');
+    root.classList.remove('light', 'dark', 'cyberpunk', 'forest', 'ocean', 'sunset', 'modern-pro');
     root.classList.add(theme);
     
     // Apply theme colors

@@ -4,12 +4,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, Edit, Save, X, Heart } from 'lucide-react';
+import { Camera, Edit, Save, X, Heart, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ThemeSwitcher } from '@/components/themes/ThemeSwitcher';
 import { ProfilePictureViewer } from '@/components/ui/profile-picture-viewer';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useNavigate } from 'react-router-dom';
 
 interface UserProfileData {
   id: string;
@@ -38,7 +49,10 @@ export default function UserProfile() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showProfilePicture, setShowProfilePicture] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -200,6 +214,54 @@ export default function UserProfile() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeleting(true);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      // Delete user data in order (due to foreign key constraints)
+      await supabase.from('story_views').delete().eq('viewer_id', authUser.id);
+      await supabase.from('stories').delete().eq('user_id', authUser.id);
+      await supabase.from('comment_likes').delete().eq('user_id', authUser.id);
+      await supabase.from('likes').delete().eq('user_id', authUser.id);
+      await supabase.from('comments').delete().eq('user_id', authUser.id);
+      await supabase.from('messages').delete().or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`);
+      await supabase.from('friends').delete().or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`);
+      await supabase.from('posts').delete().eq('user_id', authUser.id);
+      await supabase.from('profiles').delete().eq('id', authUser.id);
+
+      // Delete the auth user
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(authUser.id);
+      if (deleteError) {
+        console.error('Error deleting auth user:', deleteError);
+      }
+
+      // Sign out and redirect
+      await supabase.auth.signOut();
+      
+      toast({
+        title: 'Account deleted',
+        description: 'Your account has been permanently deleted',
+      });
+
+      // Clear local storage and redirect
+      localStorage.clear();
+      sessionStorage.clear();
+      navigate('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete account. Please try again.',
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const handleAvatarClick = () => {
     if (user) {
       setShowProfilePicture(true);
@@ -350,6 +412,27 @@ export default function UserProfile() {
       {/* Theme Switcher */}
       <ThemeSwitcher />
 
+      {/* Delete Account */}
+      <Card className="card-gradient border-red-200">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-pixelated text-sm text-red-600 font-medium">Danger Zone</h3>
+              <p className="font-pixelated text-xs text-muted-foreground">Permanently delete your account</p>
+            </div>
+            <Button
+              onClick={() => setShowDeleteConfirm(true)}
+              variant="destructive"
+              size="sm"
+              className="font-pixelated text-xs h-6"
+            >
+              <Trash2 className="h-2 w-2 mr-1" />
+              Delete Account
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Copyright */}
       <Card className="card-gradient">
         <CardContent className="p-2 text-center">
@@ -365,6 +448,40 @@ export default function UserProfile() {
         onOpenChange={setShowProfilePicture}
         user={user}
       />
+
+      {/* Delete Account Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="animate-in zoom-in-95 duration-200">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-pixelated flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-4 w-4" />
+              Delete Account
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-pixelated text-sm">
+              <strong>This action cannot be undone.</strong> This will permanently delete your account and remove all your data including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>All your posts and comments</li>
+                <li>All your messages and conversations</li>
+                <li>Your friend connections</li>
+                <li>Your profile information</li>
+                <li>All your stories and media</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-pixelated" disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAccount}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-pixelated"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Account'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

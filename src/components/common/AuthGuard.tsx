@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,19 +13,40 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Set up the auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setLoading(false);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setLoading(false);
-    });
+    };
+
+    getInitialSession();
+
+    // Set up the auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        setSession(session);
+        setLoading(false);
+        
+        // Save session state to localStorage for persistence
+        if (session) {
+          localStorage.setItem('supabase-session', JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at,
+            user_id: session.user.id
+          }));
+        } else {
+          // Only clear session data, preserve theme
+          const theme = localStorage.getItem('socialchat-theme');
+          localStorage.removeItem('supabase-session');
+          if (theme) {
+            localStorage.setItem('socialchat-theme', theme);
+          }
+        }
+      }
+    );
 
     return () => {
       subscription.unsubscribe();

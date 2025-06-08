@@ -335,12 +335,12 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-120px)] bg-white flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-120px)] bg-background flex flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           {/* Friends List - Left Sidebar */}
-          <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-white ${selectedFriend ? 'hidden md:flex' : ''}`}>
-            <div className="flex-none p-4 border-b bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-800">Messages</h2>
+          <div className={`w-full md:w-80 border-r border-border flex flex-col bg-background ${selectedFriend ? 'hidden md:flex' : ''}`}>
+            <div className="flex-none p-4 border-b bg-muted/30">
+              <h2 className="text-lg font-bold text-foreground font-pixelated">Messages</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -361,10 +361,10 @@ export function Messages() {
                   {friends.map(friend => (
                     <div
                       key={friend.id}
-                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors rounded-lg ${
                         selectedFriend?.id === friend.id 
-                          ? 'bg-green-100 border-l-4 border-green-600' 
-                          : 'hover:bg-gray-100'
+                          ? 'bg-social-green/10 border-l-4 border-social-green' 
+                          : 'hover:bg-muted/50'
                       }`}
                       onClick={() => {
                         setSelectedFriend(friend);
@@ -375,25 +375,25 @@ export function Messages() {
                         {friend.avatar ? (
                           <AvatarImage src={friend.avatar} />
                         ) : (
-                          <AvatarFallback className="bg-green-600 text-white font-bold">
+                          <AvatarFallback className="bg-social-green text-white font-pixelated font-bold">
                             {friend.name ? friend.name.substring(0, 2).toUpperCase() : 'UN'}
                           </AvatarFallback>
                         )}
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{friend.name}</p>
-                        <p className="text-sm text-gray-500 truncate">@{friend.username}</p>
+                        <p className="font-semibold text-foreground truncate font-pixelated text-sm">{friend.name}</p>
+                        <p className="text-sm text-muted-foreground truncate font-pixelated">@{friend.username}</p>
                       </div>
                       {friend.hasUnseenMessages && (
-                        <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                        <div className="h-3 w-3 bg-social-green rounded-full"></div>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center p-8">
-                  <p className="text-gray-500 mb-4">No friends yet</p>
-                  <Button variant="outline" size="sm" asChild>
+                  <p className="text-muted-foreground mb-4 font-pixelated text-sm">No friends yet</p>
+                  <Button variant="outline" size="sm" asChild className="font-pixelated">
                     <a href="/friends">Find Friends</a>
                   </Button>
                 </div>
@@ -405,33 +405,33 @@ export function Messages() {
           <div className={`flex-1 flex flex-col ${!selectedFriend ? 'hidden md:flex' : ''}`}>
             {selectedFriend ? (
               <>
-                {/* Chat Header */}
-                <div className="flex-none h-16 px-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
+                {/* Chat Header - Fixed */}
+                <div className="flex-none h-16 px-4 border-b border-border flex items-center bg-background shadow-sm sticky top-0 z-10">
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setSelectedFriend(null)}
-                    className="md:hidden mr-3 p-2 hover:bg-gray-100"
+                    className="md:hidden mr-3 p-2 hover:bg-muted font-pixelated"
                   >
-                    <ArrowLeft className="h-5 w-5 text-gray-700" />
+                    <ArrowLeft className="h-5 w-5 text-foreground" />
                   </Button>
                   <Avatar className="h-10 w-10 mr-3">
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
-                      <AvatarFallback className="bg-green-600 text-white font-bold">
+                      <AvatarFallback className="bg-social-green text-white font-pixelated font-bold">
                         {selectedFriend.name ? selectedFriend.name.substring(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     )}
                   </Avatar>
                   <div>
-                    <p className="font-semibold text-gray-900 text-base">{selectedFriend.name}</p>
-                    <p className="text-sm text-gray-600">@{selectedFriend.username}</p>
+                    <p className="font-semibold text-foreground text-base font-pixelated">{selectedFriend.name}</p>
+                    <p className="text-sm text-muted-foreground font-pixelated">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto bg-gray-50 p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex-1 overflow-y-auto bg-muted/20 p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {messages.length > 0 ? (
                     <div className="space-y-4">
                       {messages.map((message) => (
@@ -443,21 +443,21 @@ export function Messages() {
                             {message.sender?.avatar ? (
                               <AvatarImage src={message.sender.avatar} />
                             ) : (
-                              <AvatarFallback className="bg-green-600 text-white text-xs font-bold">
+                              <AvatarFallback className="bg-social-green text-white text-xs font-pixelated font-bold">
                                 {message.sender?.name ? message.sender.name.substring(0, 2).toUpperCase() : 'UN'}
                               </AvatarFallback>
                             )}
                           </Avatar>
                           
                           <div className={`max-w-[70%] ${message.sender_id === currentUser?.id ? 'text-right' : 'text-left'}`}>
-                            <div className={`inline-block px-4 py-2 rounded-2xl ${
+                            <div className={`inline-block px-4 py-2 rounded-2xl font-pixelated text-sm ${
                               message.sender_id === currentUser?.id 
-                                ? 'bg-gray-800 text-white rounded-br-md' 
-                                : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
+                                ? 'bg-social-green text-white rounded-br-md' 
+                                : 'bg-background border border-border text-foreground rounded-bl-md'
                             }`}>
-                              <p className="text-sm leading-relaxed">{message.content}</p>
+                              <p className="leading-relaxed">{message.content}</p>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1 font-pixelated">
                               {format(new Date(message.created_at), 'HH:mm')}
                             </p>
                           </div>
@@ -467,25 +467,25 @@ export function Messages() {
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center">
-                      <p className="text-gray-500">Start the conversation!</p>
+                      <p className="text-muted-foreground font-pixelated text-sm">Start the conversation!</p>
                     </div>
                   )}
                 </div>
                 
-                {/* Message Input */}
-                <div className="flex-none bg-white border-t border-gray-200 p-4">
+                {/* Message Input - Fixed */}
+                <div className="flex-none bg-background border-t border-border p-4 sticky bottom-0">
                   <div className="flex items-center gap-3 max-w-full">
                     <input
                       type="text"
                       placeholder="Type a message..."
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-green-500 bg-gray-50"
+                      className="flex-1 px-4 py-3 border border-border rounded-full text-sm focus:outline-none focus:border-social-green bg-background text-foreground font-pixelated"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       disabled={sendingMessage}
                     />
                     <Button 
-                      className="h-12 w-12 rounded-full bg-green-600 hover:bg-green-700 text-white shrink-0"
+                      className="h-12 w-12 rounded-full bg-social-green hover:bg-social-light-green text-white shrink-0"
                       onClick={sendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
                     >
@@ -495,12 +495,12 @@ export function Messages() {
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50">
-                <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                  <Send className="h-10 w-10 text-green-600" />
+              <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-muted/20">
+                <div className="h-20 w-20 bg-social-green/20 rounded-full flex items-center justify-center mb-6">
+                  <Send className="h-10 w-10 text-social-green" />
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-3">Select a chat</h1>
-                <p className="text-gray-500 max-w-sm">
+                <h1 className="text-2xl font-bold text-foreground mb-3 font-pixelated">Select a chat</h1>
+                <p className="text-muted-foreground max-w-sm font-pixelated text-sm">
                   Choose a friend from your contacts to start messaging
                 </p>
               </div>
@@ -508,16 +508,6 @@ export function Messages() {
           </div>
         </div>
       </div>
-      
-      <style jsx>{`
-        .messages-scrollbar {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .messages-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </DashboardLayout>
   );
 }
