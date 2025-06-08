@@ -175,7 +175,7 @@ export function PostCreator() {
   };
 
   return (
-    <Card className="w-full border-border mb-4" id="post-creator">
+    <Card className="w-full border-border mb-4">
       <CardContent className="p-4">
         <div className="flex gap-3">
           <Avatar className="w-10 h-10">
