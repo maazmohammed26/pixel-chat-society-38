@@ -13,30 +13,76 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setLoading(false);
+    let mounted = true;
+
+    // Function to check and restore session
+    const checkSession = async () => {
+      try {
+        // First check for existing session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          setSession(currentSession);
+          setLoading(false);
+        }
+
+        // If no session, try to restore from localStorage
+        if (!currentSession) {
+          const savedSession = localStorage.getItem('supabase-session');
+          if (savedSession) {
+            try {
+              const sessionData = JSON.parse(savedSession);
+              // Validate session data
+              if (sessionData.access_token && sessionData.refresh_token) {
+                // Try to refresh the session
+                const { data: { session: refreshedSession }, error } = await supabase.auth.setSession({
+                  access_token: sessionData.access_token,
+                  refresh_token: sessionData.refresh_token
+                });
+
+                if (!error && refreshedSession && mounted) {
+                  setSession(refreshedSession);
+                } else {
+                  // Clear invalid session data
+                  localStorage.removeItem('supabase-session');
+                }
+              }
+            } catch (error) {
+              console.error('Error parsing saved session:', error);
+              localStorage.removeItem('supabase-session');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     };
 
-    getInitialSession();
+    checkSession();
 
     // Set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        setLoading(false);
+        
+        if (mounted) {
+          setSession(session);
+          setLoading(false);
+        }
         
         // Save session state to localStorage for persistence
         if (session) {
-          localStorage.setItem('supabase-session', JSON.stringify({
+          const sessionData = {
             access_token: session.access_token,
             refresh_token: session.refresh_token,
             expires_at: session.expires_at,
-            user_id: session.user.id
-          }));
+            user_id: session.user.id,
+            timestamp: Date.now()
+          };
+          localStorage.setItem('supabase-session', JSON.stringify(sessionData));
         } else {
           // Only clear session data, preserve theme
           const theme = localStorage.getItem('socialchat-theme');
@@ -49,14 +95,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-social-blue"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-social-green"></div>
       </div>
     );
   }

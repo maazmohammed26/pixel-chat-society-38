@@ -335,7 +335,7 @@ export function Messages() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-120px)] bg-background flex flex-col overflow-hidden">
+      <div className="message-layout bg-background">
         <div className="flex flex-1 overflow-hidden">
           {/* Friends List - Left Sidebar */}
           <div className={`w-full md:w-80 border-r border-border flex flex-col bg-background ${selectedFriend ? 'hidden md:flex' : ''}`}>
@@ -343,7 +343,7 @@ export function Messages() {
               <h2 className="text-lg font-bold text-foreground font-pixelated">Messages</h2>
             </div>
             
-            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto scroll-container">
               {loading ? (
                 <div className="space-y-1 p-2">
                   {[1, 2, 3].map(i => (
@@ -406,16 +406,16 @@ export function Messages() {
             {selectedFriend ? (
               <>
                 {/* Chat Header - Fixed */}
-                <div className="flex-none h-16 px-4 border-b border-border flex items-center bg-background shadow-sm sticky top-0 z-10">
+                <div className="message-header">
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setSelectedFriend(null)}
-                    className="md:hidden mr-3 p-2 hover:bg-muted font-pixelated"
+                    className="md:hidden p-2 hover:bg-muted font-pixelated"
                   >
                     <ArrowLeft className="h-5 w-5 text-foreground" />
                   </Button>
-                  <Avatar className="h-10 w-10 mr-3">
+                  <Avatar className="h-10 w-10">
                     {selectedFriend.avatar ? (
                       <AvatarImage src={selectedFriend.avatar} />
                     ) : (
@@ -424,14 +424,14 @@ export function Messages() {
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-foreground text-base font-pixelated">{selectedFriend.name}</p>
                     <p className="text-sm text-muted-foreground font-pixelated">@{selectedFriend.username}</p>
                   </div>
                 </div>
                 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto bg-muted/20 p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="message-content scroll-container">
                   {messages.length > 0 ? (
                     <div className="space-y-4">
                       {messages.map((message) => (
@@ -473,25 +473,23 @@ export function Messages() {
                 </div>
                 
                 {/* Message Input - Fixed */}
-                <div className="flex-none bg-background border-t border-border p-4 sticky bottom-0">
-                  <div className="flex items-center gap-3 max-w-full">
-                    <input
-                      type="text"
-                      placeholder="Type a message..."
-                      className="flex-1 px-4 py-3 border border-border rounded-full text-sm focus:outline-none focus:border-social-green bg-background text-foreground font-pixelated"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      disabled={sendingMessage}
-                    />
-                    <Button 
-                      className="h-12 w-12 rounded-full bg-social-green hover:bg-social-light-green text-white shrink-0"
-                      onClick={sendMessage}
-                      disabled={!newMessage.trim() || sendingMessage}
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
-                  </div>
+                <div className="message-input">
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    className="flex-1 px-4 py-3 border border-border rounded-full text-sm focus:outline-none focus:border-social-green bg-background text-foreground font-pixelated"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    disabled={sendingMessage}
+                  />
+                  <Button 
+                    className="h-12 w-12 rounded-full bg-social-green hover:bg-social-light-green text-white shrink-0"
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || sendingMessage}
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
                 </div>
               </>
             ) : (

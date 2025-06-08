@@ -22,9 +22,12 @@ export const getCurrentUser = async () => {
  */
 export const logoutUser = async () => {
   try {
-    await supabase.auth.signOut();
-    // Clear any local storage or cached data except theme
+    // Preserve theme before clearing storage
     const theme = localStorage.getItem('socialchat-theme');
+    
+    await supabase.auth.signOut();
+    
+    // Clear all storage except theme
     localStorage.clear();
     sessionStorage.clear();
     
@@ -100,7 +103,7 @@ export const registerUser = async (email: string, password: string, name: string
 };
 
 /**
- * Login a user with enhanced error handling
+ * Login a user with enhanced error handling and session persistence
  */
 export const loginUser = async (email: string, password: string) => {
   // Validate inputs
@@ -133,6 +136,18 @@ export const loginUser = async (email: string, password: string) => {
       } else {
         throw new Error(error.message || 'Login failed. Please try again.');
       }
+    }
+
+    // Save session data for persistence
+    if (data.session) {
+      const sessionData = {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+        user_id: data.session.user.id,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('supabase-session', JSON.stringify(sessionData));
     }
 
     return data;
